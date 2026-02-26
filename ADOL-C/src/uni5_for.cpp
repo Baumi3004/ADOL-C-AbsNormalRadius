@@ -497,6 +497,12 @@ BEGIN_C_DECLS
 /****************************************************************************/
 /* Zero Order Scalar version of the forward mode.                           */
 /****************************************************************************/
+#if defined(_ABS_NORM_RAD_)
+int zos_pl_forward_radius(short tnum, int depcheck, int indcheck, int keep,
+                   const double *basepoint, double *valuepoint, double *swargs, 
+                   double *Lipz, double dist_in, double rad_in, 
+                   bool *is_almost_active)
+#else
 #if defined(_ABS_NORM_)
 int zos_pl_forward(short tnum, int depcheck, int indcheck, int keep,
                    const double *basepoint, double *valuepoint, double *swargs)
@@ -515,6 +521,7 @@ int zos_forward_nk(
     const double *basepoint, /* independent variable values */
     double *valuepoint)      /* dependent variable values */
 
+#endif
 #endif
 
 #else
@@ -3868,6 +3875,17 @@ int hov_forward(
 #if defined(_ABS_NORM_) || defined(_ABS_NORM_SIG_)
       tape.signature()[switchnum] = dp_T0[arg];
       swargs[switchnum] = dp_T0[arg];
+      #if defined(_ABS_NORM_RAD_) 
+        if (dist_in > 1e-10){
+          //abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
+          // update Lipz here 
+        }
+        if (abs(dp_T0[arg]) < Lipz[switchnum]*rad_in){ 
+          is_almost_active[switchnum] = true;    
+          // do we prepare something for rev already here?
+        }
+      #endif
+
 #endif
 #endif /* !_NTIGHT_ */
 
@@ -5955,7 +5973,7 @@ int hov_forward(
 }
 
 /****************************************************************************/
-#if defined(_ZOS_) && defined(_ABS_NORM_)
+#if defined(_ZOS_) && defined(_ABS_NORM_) && !defined(_ABS_NORM_RAD_)
 size_t get_num_switches(short tapeId) {
   ValueTape &tape = findTape(tapeId);
   tape.init_sweep<ValueTape::Forward>();

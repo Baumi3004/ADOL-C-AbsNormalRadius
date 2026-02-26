@@ -21,6 +21,7 @@
 #include <adolc/internal/common.h>
 #include <math.h>
 #include <vector>
+#include <algorithm>
 
 BEGIN_C_DECLS
 
@@ -90,6 +91,80 @@ int abs_normal(short tag,       /* tape identifier */
   }
   return 0;
 }
+
+
+/*--------------------------------------------------------------------------*/
+// ABS Normal with radius
+int abs_normal_radius(short tag,       /* tape identifier */
+               int m,           /* number od dependents   */
+               int n,           /* number of independents */
+               int swchk,       /* number of switches (check) */
+               const double *x, /* base point */
+               double *y,       /* function value */
+               double *z,       /* switching variables */
+               double *cz,      /* first constant */
+               double *cy,      /* second constant */
+               double **Y,      /* m times n */
+               double **J,      /* m times s */
+               double **Z,      /* s times n */
+               double **L,      /* s times s (lowtri) */
+               double *Lipz,    /* estimated Lipschitz constants of z (size s)*/
+               double dist_in,  /* distance of latest x inputs */
+               double rad_in,   /* radius for almost active switches */
+               bool *is_almost_active) /* location for bools to store if a switch is active */
+{
+
+  const size_t s = get_num_switches(tag);
+  /* This check is required because the user is probably allocating his
+   * arrays sigma, cz, Z, L, Y, J according to swchk */
+  if (s != to_size_t(swchk))
+    ADOLCError::fail(
+        ADOLCError::ErrorType::SWITCHES_MISMATCH, CURRENT_LOCATION,
+        ADOLCError::FailInfo{.info1 = tag, .info3 = swchk, .info6 = s});
+
+  std::vector<double> res(n + s);
+
+  zos_pl_forward_radius(tag, m, n, 1, x, y, z, Lipz, dist_in, rad_in, is_almost_active);
+  int num_almost_active = static_cast<int>(std::count(is_almost_active, is_almost_active + s, true)); 
+
+
+  std::ptrdiff_t l = 0;
+  for (size_t i = 0; i < m + s; i++) {
+    l = static_cast<std::ptrdiff_t>(i) - static_cast<std::ptrdiff_t>(s);
+    // the cast is necessary since the type signature uses "int". Its now
+    // explicit.
+    if ( l >= 0 || is_almost_active[i]) {
+    fos_pl_reverse_radius(tag, m, n, static_cast<int>(s), static_cast<int>(i),
+                   res.data(), is_almost_active);
+
+    if (l < 0) {
+      cz[i] = z[i];
+      for (int j = 0; j < n; j++) {
+        Z[i][j] = res[j];
+      }
+      for (size_t j = 0; j < s;
+           j++) { /* L[i][i] .. L[i][s] are theoretically zero,
+                   *  we probably don't need to copy them */
+        L[i][j] = res[j + n];
+        if (j < i) {
+          cz[i] = cz[i] - L[i][j] * fabs(z[j]);
+        }
+      }
+    } else {
+      cy[l] = y[l];
+      for (int j = 0; j < n; j++) {
+        Y[l][j] = res[j];
+      }
+      for (size_t j = 0; j < s; j++) {
+        J[l][j] = res[j + n];
+        cy[l] = cy[l] - J[l][j] * fabs(z[j]);
+      }
+    }
+  }
+  }
+  return num_almost_active;
+}
+
 
 /*--------------------------------------------------------------------------*/
 /*                                              directional_active_gradient */

@@ -96,6 +96,11 @@ ADOLC_API int abs_normal(short tag, int m, int n, int swchk, const double *x,
                          double *y, double *z, double *cz, double *cy,
                          double **Y, double **J, double **Z, double **L);
 
+ADOLC_API int abs_normal_radius(short tag, int m, int n, int swchk, 
+                         const double *x, double *y, double *z, double *cz, 
+                         double *cy, double **Y, double **J, double **Z, 
+                         double **L, double *Lipz, double dist_in, 
+                         double rad_in, bool *is_almost_active);
 END_C_DECLS
 
 /****************************************************************************/
