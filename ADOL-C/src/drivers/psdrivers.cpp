@@ -128,6 +128,7 @@ int abs_normal_radius(short tag,       /* tape identifier */
   int num_almost_active = static_cast<int>(std::count(is_almost_active, is_almost_active + s, true)); 
 
 
+  int row = 0; 
   std::ptrdiff_t l = 0;
   for (size_t i = 0; i < m + s; i++) {
     l = static_cast<std::ptrdiff_t>(i) - static_cast<std::ptrdiff_t>(s);
@@ -138,27 +139,36 @@ int abs_normal_radius(short tag,       /* tape identifier */
                    res.data(), is_almost_active);
 
     if (l < 0) {
-      cz[i] = z[i];
+      cz[row] = z[i];
       for (int j = 0; j < n; j++) {
-        Z[i][j] = res[j];
+        Z[row][j] = res[j];
       }
+      int col = 0; 
       for (size_t j = 0; j < s;
            j++) { /* L[i][i] .. L[i][s] are theoretically zero,
                    *  we probably don't need to copy them */
-        L[i][j] = res[j + n];
+        if ( is_almost_active[j] ) {
+        L[row][col] = res[j + n];
         if (j < i) {
-          cz[i] = cz[i] - L[i][j] * fabs(z[j]);
+          cz[row] = cz[row] - L[row][col] * fabs(z[j]);
         }
+        col++; 
       }
+      }
+      row++; 
     } else {
       cy[l] = y[l];
       for (int j = 0; j < n; j++) {
         Y[l][j] = res[j];
       }
+      int col = 0;
       for (size_t j = 0; j < s; j++) {
-        J[l][j] = res[j + n];
-        cy[l] = cy[l] - J[l][j] * fabs(z[j]);
+        if ( is_almost_active[j] ) {
+        J[l][col] = res[j + n];
+        cy[l] = cy[l] - J[l][col] * fabs(z[j]);
+        col++; 
       }
+    }
     }
   }
   }

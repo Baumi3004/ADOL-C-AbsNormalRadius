@@ -3873,18 +3873,25 @@ int hov_forward(
           MINDEC(ret_c, 2);
       }
 #if defined(_ABS_NORM_) || defined(_ABS_NORM_SIG_)
-      tape.signature()[switchnum] = dp_T0[arg];
-      swargs[switchnum] = dp_T0[arg];
       #if defined(_ABS_NORM_RAD_) 
         if (dist_in > 1e-10){
-          //abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
-          // update Lipz here 
+          // the swargs input is used for the old value of z here!
+          // is this a good idea? Otherwise z is copied a lot...
+          double tmp = abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
+          if (tmp > Lipz[switchnum]) {
+            Lipz[switchnum] = tmp; 
+          } else {
+            double decay_param = 0.001;
+            Lipz[switchnum] = decay_param*tmp + (1.0 - decay_param)*Lipz[switchnum]; 
+          }
+
         }
         if (abs(dp_T0[arg]) < Lipz[switchnum]*rad_in){ 
           is_almost_active[switchnum] = true;    
-          // do we prepare something for rev already here?
         }
       #endif
+      tape.signature()[switchnum] = dp_T0[arg];
+      swargs[switchnum] = dp_T0[arg];
 
 #endif
 #endif /* !_NTIGHT_ */
