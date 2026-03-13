@@ -224,7 +224,7 @@ int fos_pl_reverse_radius(short tnum,      /* tape id */
                    int swchk,       /* consistency chk on # of switches */
                    int rownum,      /* required row no. of abs-normal form */
                    double *results, /*  coefficient vectors */
-                   bool *is_almost_active) /* which switches treat active*/
+                   std::vector<bool>& is_almost_active) /* which switches treat active*/
 #elif defined(_ABS_NORM_)
 /****************************************************************************/
 /* Abs-Normal extended adjoint row computation.                             */
@@ -463,8 +463,7 @@ int int_reverse_safe(
 #if defined(_ABS_NORM_RAD_)
   if ( rownum < swchk && is_almost_active[rownum] == false){
     // CHANGE TO CORRECT ERROR 
-    ADOLCError::fail(ADOLCError::ErrorType::NO_MINMAX, CURRENT_LOCATION,
-                     ADOLCError::FailInfo{.info1 = tnum});
+    throw rownum; 
   }
 #endif
 

@@ -48,6 +48,7 @@
 
 #include <adolc/adolcexport.h>
 #include <adolc/internal/common.h>
+#include <vector>
 
 /****************************************************************************/
 /****************************************************************************/
@@ -446,7 +447,7 @@ ADOLC_API int zos_pl_forward(short, int, int, int, const double *, double *,
                              double *);
 ADOLC_API int zos_pl_forward_radius(short, int, int, int, const double *, 
                              double *, double *, double *, double, double, 
-                             bool *);
+                             std::vector<bool>&);
 ADOLC_API short firstsign(int, const double *, const double *);
 ADOLC_API short ext_firstsign(double, double, int, double *, double *);
 ADOLC_API short ext_firstsign2(double, int, double *, double *);
@@ -468,7 +469,7 @@ ADOLC_API int indopro_forward_absnormal(short, int, int, int, const double *,
 /*--------------------------------------------------------------------------*/
 ADOLC_API int fos_pl_reverse(short, int, int, int, int, double *);
 ADOLC_API int fos_pl_reverse_radius(short, int, int, int, int, double *, 
-                                  bool *);
+                                  std::vector<bool>&);
 ADOLC_API int fos_pl_sig_reverse(short, int, int, int, const short *,
                                  const double *, double *);
 

@@ -19,6 +19,7 @@
 #include <adolc/adolcexport.h>
 #include <adolc/interfaces.h>
 #include <adolc/internal/common.h>
+#include <vector>
 
 BEGIN_C_DECLS
 
@@ -92,15 +93,41 @@ ADOLC_API fint abs_normal_(fint *, fint *, fint *, fint *, fdouble *, fdouble *,
  *
  * @return Zero on success, nonzero on failure.
  */
+
+struct absLinearForm {
+  size_t n = -1;
+  size_t m = -1;
+  size_t s = -1;
+  std::vector<double> y;
+  std::vector<double> z;
+  std::vector<double> cz;
+  std::vector<double> cy;
+  std::vector<double> A_mem;
+  std::vector<double> B_mem;
+  std::vector<double> Z_mem;
+  std::vector<double> L_mem;
+  std::vector<double *> A;
+  std::vector<double *> B;
+  std::vector<double *> Z;
+  std::vector<double *> L;
+};
+
+struct absLinearFormRadius : public absLinearForm {
+  std::vector<double> lastx;
+  std::vector<double> lipzEstimate;
+  std::vector<double> z_almost_active;
+  std::vector<bool> is_almost_active;
+  int num_almost_active = -1;
+};
+
+ADOLC_API int abs_normal_struct(short tag, const std::vector<double> &x,
+                                absLinearForm &alf);
+ADOLC_API int abs_normal_radius(short tag, const std::vector<double> &x,
+                                double rad_in, absLinearFormRadius &alfr);
+
 ADOLC_API int abs_normal(short tag, int m, int n, int swchk, const double *x,
                          double *y, double *z, double *cz, double *cy,
                          double **Y, double **J, double **Z, double **L);
-
-ADOLC_API int abs_normal_radius(short tag, int m, int n, int swchk, 
-                         const double *x, double *y, double *z, double *cz, 
-                         double *cy, double **Y, double **J, double **Z, 
-                         double **L, double *Lipz, double dist_in, 
-                         double rad_in, bool *is_almost_active);
 END_C_DECLS
 
 /****************************************************************************/

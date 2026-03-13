@@ -500,8 +500,8 @@ BEGIN_C_DECLS
 #if defined(_ABS_NORM_RAD_)
 int zos_pl_forward_radius(short tnum, int depcheck, int indcheck, int keep,
                    const double *basepoint, double *valuepoint, double *swargs, 
-                   double *Lipz, double dist_in, double rad_in, 
-                   bool *is_almost_active)
+                   double *lipz, double dist_in, double rad_in, 
+                   std::vector<bool>& is_almost_active)
 #else
 #if defined(_ABS_NORM_)
 int zos_pl_forward(short tnum, int depcheck, int indcheck, int keep,
@@ -3877,17 +3877,19 @@ int hov_forward(
         if (dist_in > 1e-10){
           // the swargs input is used for the old value of z here!
           // is this a good idea? Otherwise z is copied a lot...
-          double tmp = abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
-          if (tmp > Lipz[switchnum]) {
-            Lipz[switchnum] = tmp; 
+          const double lip_estimate = abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
+          if (lip_estimate > lipz[switchnum]) {
+            lipz[switchnum] = lip_estimate; 
           } else {
-            double decay_param = 0.001;
-            Lipz[switchnum] = decay_param*tmp + (1.0 - decay_param)*Lipz[switchnum]; 
+            const double decay_param = 0.001;
+            lipz[switchnum] = decay_param*lip_estimate + (1.0 - decay_param)*lipz[switchnum]; 
           }
 
         }
-        if (abs(dp_T0[arg]) < Lipz[switchnum]*rad_in){ 
+        if (abs(dp_T0[arg]) < lipz[switchnum]*rad_in){ 
           is_almost_active[switchnum] = true;    
+        } else {
+          is_almost_active[switchnum] = false; 
         }
       #endif
       tape.signature()[switchnum] = dp_T0[arg];
