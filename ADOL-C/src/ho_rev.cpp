@@ -355,6 +355,10 @@ int hov_ti_reverse(
   const int pk1 = p * k1;
   const int q = p;
 #else
+  // We want to store number of directions in edfct. Since we have scalar and
+  // vector methods in the same file we have to define nrows for the case that
+  // its not declared by the function signature.
+  int nrows = 0;
   const int q = 1;
   const int p = 1;
 #endif
@@ -425,7 +429,6 @@ int hov_ti_reverse(
 
   locint n, m;
   ext_diff_fct *edfct = nullptr;
-  int oldTraceFlag;
   /*----------------------------------------------------------------------*/
 #elif _HOV_    /* HOV */
   rpp_A = myalloc2(tape.tapestats(TapeInfos::NUM_MAX_LIVES), pk1);
@@ -2848,17 +2851,11 @@ int hov_ti_reverse(
       /*--------------------------------------------------------------------------*/
     case ext_diff: /* extern differentiated function */
     {
-      tape.cp_index(tape.get_locint_r());
-      tape.lowestYLoc_rev(tape.get_locint_r());
-      tape.lowestXLoc_rev(tape.get_locint_r());
       m = tape.get_locint_r();
       n = tape.get_locint_r();
       tape.ext_diff_fct_index(tape.get_locint_r());
       edfct = get_ext_diff_fct(tape.tapeId(), tape.ext_diff_fct_index());
-
-      oldTraceFlag = tape.traceFlag();
-      tape.traceFlag(0);
-
+      edfct->numDirs = nrows;
       /* degree is not known when registering external functions,
          so do memory allocation here (at least for now) */
       double **dpp_U = new double *[m];
@@ -2883,14 +2880,14 @@ int hov_ti_reverse(
           ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_NULLPOINTER_ARGUMENT,
                            CURRENT_LOCATION);
       }
-      arg = tape.lowestYLoc_rev() + m - 1;
+      arg = edfct->firstDepLocation + m - 1;
       for (size_t loop = 0; loop < m; ++loop) {
         // First entry of rpp_A[arg] is algorithmic dependency --> skip that!
         dpp_U[loop] = rpp_A[arg] + 1;
         ++arg;
       }
 
-      arg = tape.lowestXLoc_rev();
+      arg = edfct->firstIndLocation;
       for (size_t loop = 0; loop < n; ++loop) {
         // This should copy data in case `revreal` is not double.
         // (Note: copy back below doesn't actually do anything until this is
@@ -2899,13 +2896,13 @@ int hov_ti_reverse(
         dpp_Z[loop] = rpp_A[arg] + 1;
         ++arg;
       }
-      arg = tape.lowestXLoc_rev();
+      arg = edfct->firstIndLocation;
       double **dpp_x = rpp_T + arg; // TODO: change to copy, use loop below
       for (size_t loop = 0; loop < n; ++loop, ++arg) {
         // TODO: copy rpp_T[arg][0,...,keep] -> dpp_x[loop][0,...,keep]
         // edfct->dp_x[loop] = rpp_T[arg];
       }
-      arg = tape.lowestYLoc_rev();
+      arg = edfct->firstDepLocation;
       double **dpp_y = rpp_T + arg; // TODO: change to copy, use loop below
       for (size_t loop = 0; loop < m; ++loop, ++arg) {
         // TODO: copy rpp_T[arg][0,...,keep] -> dpp_y[loop][0,...,keep]
@@ -2914,7 +2911,7 @@ int hov_ti_reverse(
       int ext_retc = edfct->ADOLC_EXT_FCT_COMPLETE;
       MINDEC(ret_c, ext_retc);
 
-      res = tape.lowestYLoc_rev();
+      res = edfct->firstDepLocation;
       // Ares = A[res];
       for (size_t loop = 0; loop < m; ++loop) {
         for (int l = 0; l < q; ++l) {
@@ -2924,7 +2921,7 @@ int hov_ti_reverse(
         }
         ++res;
       }
-      res = tape.lowestXLoc_rev();
+      res = edfct->firstIndLocation;
       for (size_t loop = 0; loop < n; ++loop) {
         // ADOLC_EXT_FCT_COPY_ADJOINTS_BACK(ADOLC_EXT_FCT_Z[loop],ADJOINT_BUFFER_RES);
         // Hmm, ist das nicht falsch? Wir sollten rpp_T vermutlich nicht
@@ -2942,21 +2939,19 @@ int hov_ti_reverse(
         ++res;
       }
       if (edfct->dp_y_priorRequired) {
-        arg = tape.lowestYLoc_rev() + m - 1;
+        arg = edfct->firstDepLocation + m - 1;
         for (size_t loop = 0; loop < m; ++loop, --arg) {
           // ADOLC_GET_TAYLOR(arg);
           GET_TAYL(arg, k, p);
         }
       }
       if (edfct->dp_x_changes) {
-        arg = tape.lowestXLoc_rev() + n - 1;
+        arg = edfct->firstIndLocation + n - 1;
         for (size_t loop = 0; loop < n; ++loop, --arg) {
           // ADOLC_GET_TAYLOR(arg);
           GET_TAYL(arg, k, p);
         }
       }
-      tape.traceFlag(oldTraceFlag);
-
       delete[] dpp_Z;
       delete[] dpp_U;
 

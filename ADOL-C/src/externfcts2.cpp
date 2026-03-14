@@ -42,7 +42,10 @@ static void update_ext_fct_memory(ext_diff_fct_v2 *edfct, size_t nin,
     m_isz = (m_isz < insz[i]) ? insz[i] : m_isz;
   for (size_t i = 0; i < nout; i++)
     m_osz = (m_osz < outsz[i]) ? outsz[i] : m_osz;
-  if (edfct->max_nin < nin || edfct->max_nout < nout ||
+  if (edfct->x == nullptr || edfct->y == nullptr || edfct->xp == nullptr ||
+      edfct->yp == nullptr || edfct->up == nullptr || edfct->zp == nullptr ||
+      edfct->Xp == nullptr || edfct->Yp == nullptr || edfct->Up == nullptr ||
+      edfct->Zp == nullptr || edfct->max_nin < nin || edfct->max_nout < nout ||
       edfct->max_insz < m_isz || edfct->max_outsz < m_osz) {
     char *tmp;
     size_t q = nout * m_osz;
@@ -80,39 +83,34 @@ int call_ext_fct(ext_diff_fct_v2 *edfct, size_t iArrLen, size_t *iArr,
                  size_t nin, size_t nout, size_t *insz, adouble **x,
                  size_t *outsz, adouble **y) {
   int ret;
-  int oldTraceFlag;
   std::vector<double> vals;
 
   ValueTape &tape = findTape(edfct->tapeId);
-  if (tape.traceFlag()) {
-    tape.put_op(ext_diff_v2, 2 * (nin + nout) + iArrLen);
-    tape.put_loc(edfct->index);
-    tape.put_loc(iArrLen);
-    for (size_t i = 0; i < iArrLen; i++)
-      tape.put_loc(iArr[i]);
-    tape.put_loc(iArrLen);
-    tape.put_loc(nin);
-    tape.put_loc(nout);
-    for (size_t i = 0; i < nin; i++) {
-      if (x[i][insz[i] - 1].loc() - x[i][0].loc() != (unsigned)insz[i] - 1)
-        ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_LOCATIONGAP,
-                         CURRENT_LOCATION);
-      tape.put_loc(insz[i]);
-      tape.put_loc(x[i][0].loc());
-    }
-    for (size_t i = 0; i < nout; i++) {
-      if (y[i][outsz[i] - 1].loc() - y[i][0].loc() != (unsigned)outsz[i] - 1)
-        ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_LOCATIONGAP,
-                         CURRENT_LOCATION);
-      tape.put_loc(outsz[i]);
-      tape.put_loc(y[i][0].loc());
-    }
-    tape.put_loc(nin);
-    tape.put_loc(nout);
-    oldTraceFlag = tape.traceFlag();
-    tape.traceFlag(0);
-  } else
-    oldTraceFlag = 0;
+
+  tape.put_op(ext_diff_v2, 2 * (nin + nout) + iArrLen);
+  tape.put_loc(edfct->index);
+  tape.put_loc(iArrLen);
+  for (size_t i = 0; i < iArrLen; i++)
+    tape.put_loc(iArr[i]);
+  tape.put_loc(iArrLen);
+  tape.put_loc(nin);
+  tape.put_loc(nout);
+  for (size_t i = 0; i < nin; i++) {
+    if (x[i][insz[i] - 1].loc() - x[i][0].loc() != (unsigned)insz[i] - 1)
+      ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_LOCATIONGAP,
+                       CURRENT_LOCATION);
+    tape.put_loc(insz[i]);
+    tape.put_loc(x[i][0].loc());
+  }
+  for (size_t i = 0; i < nout; i++) {
+    if (y[i][outsz[i] - 1].loc() - y[i][0].loc() != (unsigned)outsz[i] - 1)
+      ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_LOCATIONGAP,
+                       CURRENT_LOCATION);
+    tape.put_loc(outsz[i]);
+    tape.put_loc(y[i][0].loc());
+  }
+  tape.put_loc(nin);
+  tape.put_loc(nout);
 
   if (edfct->nestedAdolc) {
     vals.resize(tape.storeSize());
@@ -120,23 +118,21 @@ int call_ext_fct(ext_diff_fct_v2 *edfct, size_t iArrLen, size_t *iArr,
   }
   if (!edfct->user_allocated_mem)
     update_ext_fct_memory(edfct, nin, nout, insz, outsz);
-  if (oldTraceFlag != 0) {
+  if (edfct->dp_x_changes)
+    for (size_t i = 0; i < nin; i++)
+      tape.add_numTays_Tape(insz[i]);
+  if (edfct->dp_y_priorRequired)
+    for (size_t i = 0; i < nout; i++)
+      tape.add_numTays_Tape(outsz[i]);
+  if (tape.keepTaylors()) {
     if (edfct->dp_x_changes)
       for (size_t i = 0; i < nin; i++)
-        tape.add_numTays_Tape(insz[i]);
+        for (size_t j = 0; j < insz[i]; j++)
+          tape.write_scaylor(x[i][j].value());
     if (edfct->dp_y_priorRequired)
       for (size_t i = 0; i < nout; i++)
-        tape.add_numTays_Tape(outsz[i]);
-    if (tape.keepTaylors()) {
-      if (edfct->dp_x_changes)
-        for (size_t i = 0; i < nin; i++)
-          for (size_t j = 0; j < insz[i]; j++)
-            tape.write_scaylor(x[i][j].value());
-      if (edfct->dp_y_priorRequired)
-        for (size_t i = 0; i < nout; i++)
-          for (size_t j = 0; j < outsz[i]; j++)
-            tape.write_scaylor(y[i][j].value());
-    }
+        for (size_t j = 0; j < outsz[i]; j++)
+          tape.write_scaylor(y[i][j].value());
   }
 
   for (size_t i = 0; i < nin; i++)
@@ -164,7 +160,6 @@ int call_ext_fct(ext_diff_fct_v2 *edfct, size_t iArrLen, size_t *iArr,
     for (size_t j = 0; j < outsz[i]; j++)
       y[i][j].value(edfct->y[i][j]);
 
-  tape.traceFlag(oldTraceFlag);
   return ret;
 }
 

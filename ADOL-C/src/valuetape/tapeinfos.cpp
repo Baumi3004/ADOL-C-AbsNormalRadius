@@ -43,30 +43,23 @@ TapeInfos::~TapeInfos() {
 
 TapeInfos::TapeInfos(TapeInfos &&other) noexcept
     : tapeId_(other.tapeId_), numInds(other.numInds), numDeps(other.numDeps),
-      keepTaylors(other.keepTaylors), traceFlag(other.traceFlag),
-      op_file(other.op_file), opBuffer(other.opBuffer), currOp(other.currOp),
-      lastOpP1(other.lastOpP1), numOps_Tape(other.numOps_Tape),
-      num_eq_prod(other.num_eq_prod), val_file(other.val_file),
-      valBuffer(other.valBuffer), currVal(other.currVal),
-      lastValP1(other.lastValP1), numVals_Tape(other.numVals_Tape),
-      loc_file(other.loc_file), locBuffer(other.locBuffer),
-      currLoc(other.currLoc), lastLocP1(other.lastLocP1),
-      numLocs_Tape(other.numLocs_Tape), tay_file(other.tay_file),
-      tayBuffer(other.tayBuffer), currTay(other.currTay),
-      lastTayP1(other.lastTayP1), numTays_Tape(other.numTays_Tape),
+      keepTaylors(other.keepTaylors), op_file(other.op_file),
+      opBuffer(other.opBuffer), currOp(other.currOp), lastOpP1(other.lastOpP1),
+      numOps_Tape(other.numOps_Tape), num_eq_prod(other.num_eq_prod),
+      val_file(other.val_file), valBuffer(other.valBuffer),
+      currVal(other.currVal), lastValP1(other.lastValP1),
+      numVals_Tape(other.numVals_Tape), loc_file(other.loc_file),
+      locBuffer(other.locBuffer), currLoc(other.currLoc),
+      lastLocP1(other.lastLocP1), numLocs_Tape(other.numLocs_Tape),
+      tay_file(other.tay_file), tayBuffer(other.tayBuffer),
+      currTay(other.currTay), lastTayP1(other.lastTayP1),
+      numTays_Tape(other.numTays_Tape),
       nextBufferNumber(other.nextBufferNumber),
       lastTayBlockInCore(other.lastTayBlockInCore), deg_save(other.deg_save),
       tay_numInds(other.tay_numInds), tay_numDeps(other.tay_numDeps),
-      lowestXLoc_for(other.lowestXLoc_for),
-      lowestYLoc_for(other.lowestYLoc_for),
-      lowestXLoc_rev(other.lowestXLoc_rev),
-      lowestYLoc_rev(other.lowestYLoc_rev), cpIndex(other.cpIndex),
-      numDirs_rev(other.numDirs_rev),
-      lowestXLoc_ext_v2(other.lowestXLoc_ext_v2),
-      lowestYLoc_ext_v2(other.lowestYLoc_ext_v2), dp_T0(other.dp_T0),
-      workMode(other.workMode), rp_T(other.rp_T), rpp_T(other.rpp_T),
-      rp_A(other.rp_A), rpp_A(other.rpp_A), upp_A(other.upp_A),
-      ext_diff_fct_index(other.ext_diff_fct_index),
+      dp_T0(other.dp_T0), workMode(other.workMode), rp_T(other.rp_T),
+      rpp_T(other.rpp_T), rp_A(other.rp_A), rpp_A(other.rpp_A),
+      upp_A(other.upp_A), ext_diff_fct_index(other.ext_diff_fct_index),
       in_nested_ctx(other.in_nested_ctx), numSwitches(other.numSwitches),
       signature(other.signature) {
   std::copy(std::begin(other.stats), std::end(other.stats), std::begin(stats));
@@ -91,9 +84,6 @@ TapeInfos::TapeInfos(TapeInfos &&other) noexcept
   other.tayBuffer = nullptr;
   other.currTay = nullptr;
   other.lastTayP1 = nullptr;
-
-  other.lowestXLoc_ext_v2 = nullptr;
-  other.lowestYLoc_ext_v2 = nullptr;
 
   other.dp_T0 = nullptr;
 
@@ -121,7 +111,6 @@ TapeInfos &TapeInfos::operator=(TapeInfos &&other) noexcept {
     numInds = other.numInds;
     numDeps = other.numDeps;
     keepTaylors = other.keepTaylors;
-    traceFlag = other.traceFlag;
     std::copy(std::begin(other.stats), std::end(other.stats),
               std::begin(stats));
 
@@ -156,16 +145,6 @@ TapeInfos &TapeInfos::operator=(TapeInfos &&other) noexcept {
     tay_numInds = other.tay_numInds;
     tay_numDeps = other.tay_numDeps;
 
-    lowestXLoc_for = other.lowestXLoc_for;
-    lowestYLoc_for = other.lowestYLoc_for;
-    lowestXLoc_rev = other.lowestXLoc_rev;
-    lowestYLoc_rev = other.lowestYLoc_rev;
-    cpIndex = other.cpIndex;
-    numDirs_rev = other.numDirs_rev;
-
-    lowestXLoc_ext_v2 = other.lowestXLoc_ext_v2;
-    lowestYLoc_ext_v2 = other.lowestYLoc_ext_v2;
-
     dp_T0 = other.dp_T0;
     workMode = other.workMode;
 
@@ -197,8 +176,6 @@ TapeInfos &TapeInfos::operator=(TapeInfos &&other) noexcept {
     other.tayBuffer = nullptr;
     other.currTay = nullptr;
     other.lastTayP1 = nullptr;
-    other.lowestXLoc_ext_v2 = nullptr;
-    other.lowestYLoc_ext_v2 = nullptr;
     other.dp_T0 = nullptr;
     other.rp_T = nullptr;
     other.rpp_T = nullptr;

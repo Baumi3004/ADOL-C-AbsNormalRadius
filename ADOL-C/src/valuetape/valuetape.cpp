@@ -14,7 +14,6 @@ ValueTape::~ValueTape() {
   // deleted!
   assert(numLives() == 0 &&
          "Can not destroy ValueTape there are still active variables!");
-  cp_clearStack();
 }
 
 void ValueTape::initTapeInfos_keep() {
@@ -73,7 +72,6 @@ int ValueTape::initNewTape() {
 #ifdef ADOLC_SPARSE
   initSparse();
 #endif
-  traceFlag(1);
   // those are the old values from the globaltapevars
   // require to init the tape-buffers with correct size
   // or set the last location pointers.
@@ -102,7 +100,6 @@ void ValueTape::openTape() {
     if (tay_file())
       rewind(tay_file());
     initTapeInfos_keep();
-    traceFlag(1);
     read_tape_stats();
   }
   // must be after initTapeInfos_keep, to not get overwritten!
@@ -143,7 +140,6 @@ void ValueTape::take_stock() {
       put_vals_notWriteBlock(vals, vals_left);
     }
   }
-  tapeInfos_.traceFlag = 1;
 }
 
 /****************************************************************************/
@@ -170,7 +166,6 @@ size_t ValueTape::keep_stock() {
       write_scaylor(globalTapeVars_.store[loc2]);
     } while (loc2-- > 0);
   }
-  tapeInfos_.traceFlag = 0;
   return globalTapeVars_.storeSize;
 }
 
@@ -189,7 +184,7 @@ void ValueTape::taylor_begin(size_t bufferSize, int degreeSave) {
             " found that will be overwritten !!!\n\n",
             tapeId());
 #endif
-    taylor_close(false);
+    finish_tay_file();
   } else {
     if (tay_fileName() == nullptr)
       tay_fileName();
@@ -207,18 +202,18 @@ void ValueTape::taylor_begin(size_t bufferSize, int degreeSave) {
 /****************************************************************************/
 /* Close the taylor file, reset data.                                       */
 /****************************************************************************/
-void ValueTape::taylor_close(bool resetData) {
-  if (resetData == false) {
-    /* enforces failure of reverse => retaping */
-    deg_save(-1);
-    if (tay_file()) {
-      fclose(tay_file());
-      remove(tay_fileName());
-      tay_file(nullptr);
-    }
-    return;
+void ValueTape::finish_tay_file() {
+  /* enforces failure of reverse => retaping */
+  deg_save(-1);
+  if (tay_file()) {
+    fclose(tay_file());
+    remove(tay_fileName());
+    tay_file(nullptr);
   }
+  return;
+}
 
+void ValueTape::taylor_close() {
   if (tay_file()) {
     if (keepTaylors())
       tapeInfos_.put_block<TayInfo<TapeInfos, ErrorType>>(
@@ -228,23 +223,8 @@ void ValueTape::taylor_close(bool resetData) {
   }
   lastTayBlockInCore(1);
   tapestats(TapeInfos::NUM_TAYS, numTays_Tape());
-
-  /* keep track of the Ind/Dep counts of the taylor stack */
   tay_numInds(tapestats(TapeInfos::NUM_INDEPENDENTS));
   tay_numDeps(tapestats(TapeInfos::NUM_DEPENDENTS));
-
-#if defined(ADOLC_DEBUG)
-  if (tapeInfos_.tay_file != nullptr)
-    fprintf(DIAG_OUT,
-            "\n ADOL-C debug: Taylor file of length %d bytes "
-            "completed\n",
-            (int)(tapeInfos_.numTays_Tape * sizeof(double)));
-  else
-    fprintf(DIAG_OUT,
-            "\n ADOL-C debug: Taylor array of length %d bytes "
-            "completed\n",
-            (int)(tapeInfos_.numTays_Tape * sizeof(double)));
-#endif
 }
 
 /****************************************************************************/
@@ -398,7 +378,7 @@ void ValueTape::stop_trace(int flag) {
   tapestats(TapeInfos::NUM_SWITCHES, numSwitches());
 
   if (keepTaylors())
-    taylor_close(true);
+    taylor_close();
 
   tapestats(TapeInfos::NUM_TAYS, numTays_Tape());
 
@@ -573,6 +553,7 @@ void ValueTape::set_param_vec(short tag, size_t numparam,
   /* make room for tapeInfos and read tapestats if necessary, keep value
    * stack information */
   openTape();
+  workMode(TapeInfos::WRITE_ACCESS);
   if (tapestats(TapeInfos::NUM_PARAM) != numparam)
     fail(PARAM_COUNTS_MISMATCH, CURRENT_LOCATION,
          FailInfo{.info1 = tag,
@@ -586,7 +567,8 @@ void ValueTape::set_param_vec(short tag, size_t numparam,
   for (size_t i = 0; i < tapestats(TapeInfos::NUM_PARAM); ++i)
     paramstore_view[i] = paramvec[i];
 
-  taylor_close(false);
+  finish_tay_file();
+  workMode(TapeInfos::NO_MODE);
 }
 
 /**

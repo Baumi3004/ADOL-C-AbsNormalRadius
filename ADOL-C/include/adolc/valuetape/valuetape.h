@@ -5,7 +5,7 @@
 #include <adolc/adolcerror.h>
 #include <adolc/adolcexport.h>
 #include <adolc/buffer_temp.h>
-#include <adolc/checkpointing_p.h>
+#include <adolc/checkpointing.h>
 #include <adolc/dvlparms.h>
 #include <adolc/externfcts.h>
 #include <adolc/externfcts2.h>
@@ -70,9 +70,6 @@ class ADOLC_API ValueTape {
   Buffer<ext_diff_fct_v2, EDFCTS_BLOCK_SIZE> ext2_buffer_;
   Buffer<CpInfos, EDFCTS_BLOCK_SIZE> cp_buffer_;
 
-  using StackElement = double **;
-  std::stack<StackElement> cp_stack_;
-
 #ifdef ADOLC_SPARSE
   ADOLC::Sparse::SparseJacInfos sJInfos_;
   ADOLC::Sparse::SparseHessInfos sHInfos_;
@@ -86,21 +83,13 @@ class ADOLC_API ValueTape {
   }
 #endif
 
-  // the compiler can not distinguish between the fct ptrs for ext_diff_fct
-  // and ext_diff_fct_v2. The wrapper makes the types explicit in the
-  // constructor of ValueTape
-  template <typename T> static void edf_zero_wrapper(T *arg) { edf_zero(arg); }
-
 public:
   ~ValueTape();
 
   // a tape always need a tapeId,
   ValueTape() = delete;
-  ValueTape(short tapeId)
-      : tapeInfos_(tapeId), perTapeInfos_(tapeId, readConfigFile()),
-        ext_buffer_(edf_zero_wrapper<ext_diff_fct>),
-        ext2_buffer_(edf_zero_wrapper<ext_diff_fct_v2>),
-        cp_buffer_(init_CpInfos) {}
+  explicit ValueTape(short tapeId)
+      : tapeInfos_(tapeId), perTapeInfos_(tapeId, readConfigFile()) {}
 
   // copying ValueTape is not allowed!
   ValueTape(const ValueTape &other) = delete;
@@ -112,8 +101,7 @@ public:
         perTapeInfos_(std::move(other.perTapeInfos_)),
         ext_buffer_(std::move(other.ext_buffer_)),
         ext2_buffer_(std::move(other.ext2_buffer_)),
-        cp_buffer_(std::move(other.cp_buffer_)),
-        cp_stack_(std::move(other.cp_stack_))
+        cp_buffer_(std::move(other.cp_buffer_))
 #ifdef ADOLC_SPARSE
         ,
         sJInfos_(std::move(other.sJInfos_)), sHInfos_(std::move(other.sHInfos_))
@@ -129,7 +117,6 @@ public:
       ext_buffer_ = std::move(other.ext_buffer_);
       ext2_buffer_ = std::move(other.ext2_buffer_);
       cp_buffer_ = std::move(other.cp_buffer_);
-      cp_stack_ = std::move(other.cp_stack_);
 #ifdef ADOLC_SPARSE
       sJInfos_ = std::move(other.sJInfos_);
       sHInfos_ = std::move(other.sHInfos_);
@@ -234,8 +221,6 @@ public:
   void deg_save(int val) { tapeInfos_.deg_save = val; }
   int deg_save() const { return tapeInfos_.deg_save; }
 
-  int traceFlag() const { return tapeInfos_.traceFlag; }
-  void traceFlag(int flag) { tapeInfos_.traceFlag = flag; }
   int keepTaylors() const { return tapeInfos_.keepTaylors; }
   void keepTaylors(int val) { tapeInfos_.keepTaylors = val; }
 
@@ -290,8 +275,6 @@ public:
   void ext_diff_fct_index(size_t index) {
     tapeInfos_.ext_diff_fct_index = index;
   }
-  size_t cp_index() const { return tapeInfos_.cpIndex; }
-  void cp_index(size_t index) { tapeInfos_.cpIndex = index; }
 
   unsigned char *currOp() const { return tapeInfos_.currOp; }
   void currOp(unsigned char *op) { tapeInfos_.currOp = op; }
@@ -302,20 +285,6 @@ public:
   double *currVal() const { return tapeInfos_.currVal; }
   void currVal(double *val) { tapeInfos_.currVal = val; }
 
-  size_t lowestXLoc_for() const { return tapeInfos_.lowestXLoc_for; }
-  size_t lowestYLoc_for() const { return tapeInfos_.lowestYLoc_for; }
-  size_t lowestXLoc_rev() const { return tapeInfos_.lowestXLoc_rev; }
-  size_t lowestYLoc_rev() const { return tapeInfos_.lowestYLoc_rev; }
-  void lowestXLoc_for(size_t loc) { tapeInfos_.lowestXLoc_for = loc; }
-  void lowestYLoc_for(size_t loc) { tapeInfos_.lowestYLoc_for = loc; }
-  void lowestXLoc_rev(size_t loc) { tapeInfos_.lowestXLoc_rev = loc; }
-  void lowestYLoc_rev(size_t loc) { tapeInfos_.lowestYLoc_rev = loc; }
-  size_t *lowestXLoc_ext_v2() const { return tapeInfos_.lowestXLoc_ext_v2; }
-  size_t *lowestYLoc_ext_v2() const { return tapeInfos_.lowestYLoc_ext_v2; }
-  void lowestXLoc_ext_v2(size_t *locs) { tapeInfos_.lowestXLoc_ext_v2 = locs; }
-  void lowestYLoc_ext_v2(size_t *locs) { tapeInfos_.lowestYLoc_ext_v2 = locs; }
-  int numDirs_rev() const { return tapeInfos_.numDirs_rev; }
-  void numDirs_rev(int dir) { tapeInfos_.numDirs_rev = dir; }
   char in_nested_ctx() const { return tapeInfos_.in_nested_ctx; }
 
   double *currTay() const { return tapeInfos_.currTay; }
@@ -357,7 +326,6 @@ public:
     return tapeInfos_.put_op(op, loc_fileName(), op_fileName(), val_fileName(),
                              reserveExtraLocations);
   }
-  bool isTaping() { return tapeInfos_.traceFlag != 0; }
 
   /* writes a block of operations onto hard disk and handles file creation,
    * removal, ... */
@@ -496,7 +464,7 @@ public:
     globalTapeVars_.branchSwitchWarning = 0;
   }
   void enableMinMaxUsingAbs() {
-    if (!isTaping())
+    if (workMode() != TapeInfos::READ_ACCESS)
       globalTapeVars_.nominmaxFlag = 1;
     else
       ADOLCError::fail(ADOLCError::ErrorType::ENABLE_MINMAX_USING_ABS,
@@ -504,7 +472,7 @@ public:
   }
 
   void disableMinMaxUsingAbs() {
-    if (!isTaping())
+    if (workMode() != TapeInfos::READ_ACCESS)
       globalTapeVars_.nominmaxFlag = 0;
     else
       ADOLCError::fail(ADOLCError::ErrorType::DISABLE_MINMAX_USING_ABS,
@@ -584,7 +552,6 @@ public:
   char inParallelRegion() const { return globalTapeVars_.inParallelRegion; }
 
   // ------------------------------- Buffer utils ---------------------------
-  void cp_clearStack();
   CpInfos *cp_append() { return cp_buffer_.append(); }
   CpInfos *cp_getElement(size_t index) { return cp_buffer_.getElement(index); }
 
@@ -604,7 +571,8 @@ public:
   void taylor_begin(size_t bufferSize, int degreeSave);
 
   // close taylor file if necessary and refill buffer if possible
-  void taylor_close(bool resetData);
+  void finish_tay_file();
+  void taylor_close();
   // initializes a reverse sweep
   void taylor_back();
 
@@ -966,10 +934,9 @@ public:
 
   static double make_inf() { return std::numeric_limits<double>::infinity(); }
 
-  void cp_takeshot(CpInfos *cpInfos);
-  void cp_restore(CpInfos *cpInfos);
-  void cp_release(CpInfos *cpInfos);
-  CpInfos *get_cp_fct(size_t index) { return cp_buffer_.getElement(index); }
+  CpInfos *get_cp_fct(size_t index) const {
+    return cp_buffer_.getElement(index);
+  }
 };
 
 #endif // ADOLC_VALUETAPE_H

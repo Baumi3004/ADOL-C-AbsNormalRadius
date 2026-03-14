@@ -58,7 +58,6 @@ struct TapeInfos {
   // 1 - write taylor stack in taping mode
   int keepTaylors{0};
   std::array<size_t, STAT_SIZE> stats{};
-  int traceFlag{0};
 
   /* ------ operations tape ------- */
   // file descriptor
@@ -105,23 +104,6 @@ struct TapeInfos {
   size_t tay_numInds{0};
   // # of dependents for the taylor stack
   size_t tay_numDeps{0};
-
-  /* ---------- checkpointing --------- */
-  // location of the first ind. - forward mode
-  size_t lowestXLoc_for{0};
-  // location of the first dep. - forward mode
-  size_t lowestYLoc_for{0};
-  // location of the first ind. - reverse mode
-  size_t lowestXLoc_rev{0};
-  // location of the first dep. - reverse mode
-  size_t lowestYLoc_rev{0};
-  // index of the curr. cp function <- tape
-  size_t cpIndex{0};
-  // # of directions for **v_reverse (checkpointing)
-  int numDirs_rev{0};
-
-  size_t *lowestXLoc_ext_v2{nullptr};
-  size_t *lowestYLoc_ext_v2{nullptr};
 
   /* evaluation forward */
   double *dp_T0{nullptr};

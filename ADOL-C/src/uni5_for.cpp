@@ -229,7 +229,7 @@ END_C_DECLS
 #define IF_KEEP_TAYLOR_CLOSE                                                   \
   if (keep) {                                                                  \
     fprintf(DIAG_OUT, "Succeeding reverse sweep will tape.fail!\n");           \
-    tape.taylor_close(false);                                                  \
+    tape.finish_tay_file();                                                    \
   }
 // clang-format off
 #define IF_KEEP_WRITE_TAYLOR(res, keep, k, p)                                  \
@@ -250,7 +250,7 @@ END_C_DECLS
 #define IF_KEEP_TAYLOR_CLOSE                                                   \
   if (keep) {                                                                  \
     fprintf(DIAG_OUT, "Otherwise succeeding reverse sweep will tape.fail!\n"); \
-    tape.taylor_close(false);                                                  \
+    tape.finish_tay_file();                                                    \
   }
 #if defined(_ZOS_)
 #define IF_KEEP_WRITE_TAYLOR(res, keep, k, p)                                  \
@@ -511,18 +511,18 @@ int zos_pl_forward(short tnum, int depcheck, int indcheck, int keep,
 int zos_forward(
 #else
 int zos_forward_nk(
-#endif
+#endif // _KEEP_
     short tnum,   /* tape id */
     int depcheck, /* consistency chk on # of deps */
     int indcheck, /* consistency chk on # of indeps */
 #if defined(_KEEP_)
     int keep, /* flag for reverse sweep */
-#endif
+#endif // _KEEP_
     const double *basepoint, /* independent variable values */
     double *valuepoint)      /* dependent variable values */
 
 #endif
-#endif
+#endif // _ABS_NORM_
 
 #else
 #if defined(_FOS_)
@@ -545,19 +545,19 @@ int fos_pl_sig_forward(short tnum, int depcheck, int indcheck,
 int fos_forward(
 #else
 int fos_forward_nk(
-#endif
+#endif // _KEEP_
     short tnum,   /* tape id */
     int depcheck, /* consistency chk on # of deps */
     int indcheck, /* consistency chk on # of indeps */
 #if defined(_KEEP_)
     int keep, /* flag for reverse sweep */
-#endif
+#endif // _KEEP_
     const double *basepoint, /* independent variable values */
     const double *argument,  /* Taylor coefficients (input) */
     double *valuepoint,      /* Taylor coefficients (output) */
     double *taylors)         /* matrix of coefficient vectors */
 /* the order of the indices in argument and taylors is [var][taylor] */
-#endif
+#endif // _ABS_NORM_
 
 #else
 #if defined(_INT_FOR_)
@@ -613,7 +613,7 @@ The order of the indices in argument and taylors is [var][taylor]
 For the full Jacobian matrix set
 p = indep / bits_per_long + ((indep % bits_per_long) != 0)
 and pass a bit pattern version of the identity matrix as an argument    */
-#endif
+#endif // _TIGHT_
 #else
 #if defined(_INDOPRO_) && !defined(_NONLIND_OLD_)
 #if defined(_TIGHT_)
@@ -630,7 +630,7 @@ int indopro_forward_tight(
 /* indopro_forward_tight( tag, m, n, x[n], *crs[m]),
 
   */
-#endif
+#endif // _TIGHT_
 #if defined(_NTIGHT_)
 #if defined(_ABS_NORM_)
     int indopro_forward_absnormal(
@@ -657,8 +657,8 @@ int indopro_forward_tight(
 /* indopro_forward_safe( tag, m, n, x[n], *crs[m]),
 
   */
-#endif
-#endif
+#endif // _ABS_NORM_
+#endif // _NTIGHT_
 #else
 #if defined(_NONLIND_)
 #if defined(_TIGHT_)
@@ -672,7 +672,7 @@ int nonl_ind_forward_tight(
     const double *basepoint, /* independent variable values   (in)   */
     uint **crs)              /* returned row index storage (out)     */
 
-#endif
+#endif // _TIGHT_
 #if defined(_NTIGHT_)
     /****************************************************************************/
     /* First Order Vector version of the forward mode, bit pattern, safe */
@@ -687,7 +687,7 @@ int nonl_ind_forward_tight(
 /* indopro_forward_safe( tag, m, n, x[n], *crs[m]),
 
   */
-#endif
+#endif // _NTIGHT_
 #else
 #if defined(_NONLIND_OLD_)
 #if defined(_TIGHT_)
@@ -701,7 +701,7 @@ int nonl_ind_old_forward_tight(
     const double *basepoint, /* independent variable values   (in)   */
     uint **crs)              /* returned row index storage (out)     */
 
-#endif
+#endif // _TIGHT_
 #if defined(_NTIGHT_)
     /****************************************************************************/
     /* First Order Vector version of the forward mode, bit pattern, safe */
@@ -716,7 +716,7 @@ int nonl_ind_old_forward_tight(
 /* indopro_forward_safe( tag, m, n, x[n], *crs[m]),
 
   */
-#endif
+#endif // _NTIGHT_
 #else
 #if defined(_FOV_)
 #if defined(_CHUNKED_)
@@ -849,6 +849,15 @@ int hov_forward(
   locint arg1 = 0;
   locint arg2 = 0;
 
+#if _ZOS_ || _FOS_
+  // We want to store number of directions in edfct. Since we have scalar and
+  // vector methods in the same file we have to define "p" for the case that
+  // "p" not declared by the function signature.
+  // The listes macros are all the cases where external differentiation is
+  // defined but "p" is not declared by the function signature
+  int p = 0;
+#endif
+
 #if !defined(_NTIGHT_)
   double coval = 0;
   double *d = nullptr;
@@ -977,7 +986,7 @@ int hov_forward(
   zos_forward_iArr(edfct->tapeId, iArrLength, iArr, n, edfct->dp_x, m,         \
                    edfct->dp_y)
 #define ADOLC_EXT_FCT_V2_COMPLETE                                              \
-  zos_forward(edfct->tapeId, iArrLength, iArr, nin, nout, insz, edfct2->x,     \
+  zos_forward(edfct2->tapeId, iArrLength, iArr, nin, nout, insz, edfct2->x,    \
               outsz, edfct2->y, edfct2->context)
 #define ADOLC_EXT_COPY_TAYLORS(dest, src)
 #endif
@@ -995,7 +1004,7 @@ int hov_forward(
 #define ADOLC_EXT_POINTER_X edfct->dp_X
 #define ADOLC_EXT_POINTER_Y edfct->dp_Y
 #define ADOLC_EXT_FCT_V2_COMPLETE                                              \
-  fos_forward(edfct->tapeId, iArrLength, iArr, nin, nout, insz, edfct2->x,     \
+  fos_forward(edfct2->tapeId, iArrLength, iArr, nin, nout, insz, edfct2->x,    \
               edfct2->xp, outsz, edfct2->y, edfct2->yp, edfct2->context)
 #define ADOLC_EXT_V2_POINTER_X edfct2->xp
 #define ADOLC_EXT_V2_POINTER_Y edfct2->yp
@@ -1016,7 +1025,7 @@ int hov_forward(
 #define ADOLC_EXT_POINTER_X edfct->dpp_X
 #define ADOLC_EXT_POINTER_Y edfct->dpp_Y
 #define ADOLC_EXT_FCT_V2_COMPLETE                                              \
-  fov_forward(edfct->tapeId, iArrLength, iArr, nin, nout, insz, edfct2->x, p,  \
+  fov_forward(edfct2->tapeId, iArrLength, iArr, nin, nout, insz, edfct2->x, p, \
               edfct2->Xp, outsz, edfct2->y, edfct2->Yp, edfct2->context)
 #define ADOLC_EXT_V2_POINTER_X edfct2->Xp
 #define ADOLC_EXT_V2_POINTER_Y edfct2->Yp
@@ -5514,11 +5523,8 @@ int hov_forward(
       tape.ext_diff_fct_index(tape.get_locint_f());
       n = tape.get_locint_f();
       m = tape.get_locint_f();
-      tape.lowestXLoc_for(tape.get_locint_f());
-      tape.lowestYLoc_for(tape.get_locint_f());
-      tape.cp_index(tape.get_locint_f());
       edfct = get_ext_diff_fct(tape.tapeId(), tape.ext_diff_fct_index());
-
+      edfct->numDirs = p;
       if (edfct->ADOLC_EXT_FCT_POINTER == nullptr)
         ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_NULLPOINTER_DIFFFUNC,
                          CURRENT_LOCATION);
@@ -5543,7 +5549,7 @@ int hov_forward(
 #endif
       }
 
-      arg = tape.lowestXLoc_for();
+      arg = edfct->firstIndLocation;
       for (size_t loop = 0; loop < n; ++loop) {
         if (edfct->dp_x_changes) {
           IF_KEEP_WRITE_TAYLOR(arg, keep, k, p);
@@ -5554,7 +5560,7 @@ int hov_forward(
 #endif
         ++arg;
       }
-      arg = tape.lowestYLoc_for();
+      arg = edfct->firstDepLocation;
       for (size_t loop = 0; loop < m; ++loop) {
         if (edfct->dp_y_priorRequired) {
           IF_KEEP_WRITE_TAYLOR(arg, keep, k, p);
@@ -5569,7 +5575,7 @@ int hov_forward(
       ext_retc = edfct->ADOLC_EXT_FCT_COMPLETE;
       MINDEC(ret_c, ext_retc);
 
-      res = tape.lowestXLoc_for();
+      res = edfct->firstIndLocation;
       for (size_t loop = 0; loop < n; ++loop) {
         dp_T0[res] = edfct->dp_x[loop];
 #if !defined(_ZOS_)
@@ -5578,7 +5584,7 @@ int hov_forward(
 #endif
         ++res;
       }
-      res = tape.lowestYLoc_for();
+      res = edfct->firstDepLocation;
       for (size_t loop = 0; loop < m; ++loop) {
         dp_T0[res] = edfct->dp_y[loop];
 #if !defined(_ZOS_)
@@ -5599,11 +5605,8 @@ int hov_forward(
       tape.ext_diff_fct_index(tape.get_locint_f());
       n = tape.get_locint_f();
       m = tape.get_locint_f();
-      tape.lowestXLoc_for(tape.get_locint_f());
-      tape.lowestYLoc_for(tape.get_locint_f());
-      tape.cp_index(tape.get_locint_f());
       edfct = get_ext_diff_fct(tape.tapeId(), tape.ext_diff_fct_index());
-
+      edfct->numDirs = p;
       if (edfct->ADOLC_EXT_FCT_IARR_POINTER == nullptr)
         ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_NULLPOINTER_DIFFFUNC,
                          CURRENT_LOCATION);
@@ -5628,7 +5631,7 @@ int hov_forward(
 #endif
       }
 
-      arg = tape.lowestXLoc_for();
+      arg = edfct->firstIndLocation;
       for (size_t loop = 0; loop < n; ++loop) {
         if (edfct->dp_x_changes) {
           IF_KEEP_WRITE_TAYLOR(arg, keep, k, p);
@@ -5639,7 +5642,7 @@ int hov_forward(
 #endif
         ++arg;
       }
-      arg = tape.lowestYLoc_for();
+      arg = edfct->firstDepLocation;
       for (size_t loop = 0; loop < m; ++loop) {
         if (edfct->dp_y_priorRequired) {
           IF_KEEP_WRITE_TAYLOR(arg, keep, k, p);
@@ -5654,7 +5657,7 @@ int hov_forward(
       ext_retc = edfct->ADOLC_EXT_FCT_IARR_COMPLETE;
       MINDEC(ret_c, ext_retc);
 
-      res = tape.lowestXLoc_for();
+      res = edfct->firstIndLocation;
       for (size_t loop = 0; loop < n; ++loop) {
         dp_T0[res] = edfct->dp_x[loop];
 #if !defined(_ZOS_)
@@ -5663,7 +5666,7 @@ int hov_forward(
 #endif
         ++res;
       }
-      res = tape.lowestYLoc_for();
+      res = edfct->firstDepLocation;
       for (size_t loop = 0; loop < m; ++loop) {
         dp_T0[res] = edfct->dp_y[loop];
 #if !defined(_ZOS_)
@@ -5675,7 +5678,7 @@ int hov_forward(
       delete[] iArr;
       iArr = nullptr;
       break;
-    case ext_diff_v2:
+    case ext_diff_v2: {
       tape.ext_diff_fct_index(tape.get_locint_f());
       iArrLength = tape.get_locint_f();
       iArr = new size_t[iArrLength];
@@ -5686,19 +5689,20 @@ int hov_forward(
       nout = tape.get_locint_f();
       insz = new locint[2 * (nin + nout)];
       outsz = insz + nin;
-      tape.lowestXLoc_ext_v2(outsz + nout);
-      tape.lowestYLoc_ext_v2(outsz + nout + nin);
+      size_t *lowestXLoc_ext_v2 = outsz + nout;
+      size_t *lowestYLoc_ext_v2 = outsz + nout + nin;
       for (size_t loop = 0; loop < nin; ++loop) {
         insz[loop] = tape.get_locint_f();
-        tape.lowestXLoc_ext_v2()[loop] = tape.get_locint_f();
+        lowestXLoc_ext_v2[loop] = tape.get_locint_f();
       }
       for (size_t loop = 0; loop < nout; ++loop) {
         outsz[loop] = tape.get_locint_f();
-        tape.lowestYLoc_ext_v2()[loop] = tape.get_locint_f();
+        lowestYLoc_ext_v2[loop] = tape.get_locint_f();
       }
       tape.get_locint_f(); /* nin again */
       tape.get_locint_f(); /* nout again */
       edfct2 = get_ext_diff_fct_v2(tape.tapeId(), tape.ext_diff_fct_index());
+      edfct2->numDirs = p;
       if (edfct2->ADOLC_EXT_FCT_POINTER == nullptr)
         ADOLCError::fail(ADOLCError::ErrorType::EXT_DIFF_NULLPOINTER_DIFFFUNC,
                          CURRENT_LOCATION);
@@ -5724,7 +5728,7 @@ int hov_forward(
       }
 
       for (size_t oloop = 0; oloop < nin; ++oloop) {
-        arg = tape.lowestXLoc_ext_v2()[oloop];
+        arg = lowestXLoc_ext_v2[oloop];
         memcpy(&edfct2->x[oloop][0], &dp_T0[arg], insz[oloop] * sizeof(double));
         for (size_t loop = 0; loop < insz[oloop]; ++loop) {
           if (edfct2->dp_x_changes) {
@@ -5738,7 +5742,7 @@ int hov_forward(
         }
       }
       for (size_t oloop = 0; oloop < nout; ++oloop) {
-        arg = tape.lowestYLoc_ext_v2()[oloop];
+        arg = lowestYLoc_ext_v2[oloop];
         memcpy(&edfct2->y[oloop][0], &dp_T0[arg],
                outsz[oloop] * sizeof(double));
         for (size_t loop = 0; loop < outsz[oloop]; ++loop) {
@@ -5757,7 +5761,7 @@ int hov_forward(
       MINDEC(ret_c, ext_retc);
 
       for (size_t oloop = 0; oloop < nin; ++oloop) {
-        res = tape.lowestXLoc_ext_v2()[oloop];
+        res = lowestXLoc_ext_v2[oloop];
         memcpy(&dp_T0[res], &edfct2->x[oloop][0], insz[oloop] * sizeof(double));
 #if !defined(_ZOS_)
         for (size_t loop = 0; loop < insz[oloop]; ++loop) {
@@ -5769,7 +5773,7 @@ int hov_forward(
       }
 
       for (size_t oloop = 0; oloop < nout; ++oloop) {
-        res = tape.lowestYLoc_ext_v2()[oloop];
+        res = lowestYLoc_ext_v2[oloop];
         memcpy(&dp_T0[res], &edfct2->y[oloop][0],
                outsz[oloop] * sizeof(double));
 #if !defined(_ZOS_)
@@ -5785,13 +5789,15 @@ int hov_forward(
       delete[] iArr;
       insz = nullptr;
       iArr = nullptr;
-      outsz = 0;
-      tape.lowestXLoc_ext_v2(nullptr);
-      tape.lowestYLoc_ext_v2(nullptr);
+      outsz = nullptr;
+      lowestXLoc_ext_v2 = nullptr;
+      lowestYLoc_ext_v2 = nullptr;
       break;
+    }
+
 #endif
 #ifdef ADOLC_MEDIPACK_SUPPORT
-      /*--------------------------------------------------------------------------*/
+    /*--------------------------------------------------------------------------*/
     case medi_call: {
       locint mediIndex = tape.get_locint_f();
       short tapeId = tape.tapeId();
@@ -5909,7 +5915,7 @@ int hov_forward(
 
 #if defined(_KEEP_)
   if (keep)
-    tape.taylor_close(true);
+    tape.taylor_close();
 #endif
 
   /* clean up */
