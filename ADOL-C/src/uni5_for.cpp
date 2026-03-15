@@ -3883,18 +3883,26 @@ int hov_forward(
       }
 #if defined(_ABS_NORM_) || defined(_ABS_NORM_SIG_)
       #if defined(_ABS_NORM_RAD_) 
+      // use the dist_in argument to figure out the distance beween inputs
         if (dist_in > 1e-10){
           // the swargs input is used for the old value of z here!
-          // is this a good idea? Otherwise z is copied a lot...
+          // now compare the distance of x inputs and switch values to estimate L constant
           const double lip_estimate = abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
           if (lip_estimate > lipz[switchnum]) {
+            // simply use new estimate if it is larger
             lipz[switchnum] = lip_estimate; 
           } else {
-            const double decay_param = 0.001;
+            //else use convex compunation to decrease estimte
+            //Worst case assumption: After true L, estimate is 0 for n times.
+            //Then the estimate should stille be 0.5*L 
+            //Since Lip_n = param^n*Lip_1, decay is 0.5^n
+            const double decay_param = std::pow(0.5, indcheck) ;
+
             lipz[switchnum] = decay_param*lip_estimate + (1.0 - decay_param)*lipz[switchnum]; 
           }
 
         }
+        // Now use the radius variable to estimate if the switch can be active within this radius
         if (abs(dp_T0[arg]) < lipz[switchnum]*rad_in){ 
           is_almost_active[switchnum] = true;    
         } else {

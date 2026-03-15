@@ -1611,13 +1611,18 @@ int int_reverse_safe(
       ASSIGN_A(Aarg, ADJOINT_BUFFER[arg])
 #if defined(_ABS_NORM_RAD_)
       if ( is_almost_active[switchnum]){
+      // if switch is almost active treat switch variable as an dependent variable 
+      // and abolute value os switch as independent variable
         if (rownum == switchnum) {
+          // start reverse mode here
           *Aarg = 1.0;
         } else {
+          // stop reverse mode here and return result for this entry
           results[indep + switchnum] = *Ares; 
-          *Ares = 0.0; // im not sure why this is done, can not be used after this!?
+          *Ares = 0.0; 
         }
       } else { 
+        // if switch is NOT almost active, do standard reverse mode with sign(switch)
         revreal aTmp = *Ares; 
         *Ares = 0.0; 
         if (TARG > 0.0){ 

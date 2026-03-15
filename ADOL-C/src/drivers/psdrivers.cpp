@@ -36,14 +36,14 @@ BEGIN_C_DECLS
 
 int abs_normal_struct(short tag, const std::vector<double> &x,
                       absLinearForm &alf) {
-
+  // get indep, deps, and num_switches from the tape
   ValueTape &tape = findTape(tag);
   tape.init_sweep<ValueTape::Forward>();
   size_t m = tape.tapestats(TapeInfos::NUM_DEPENDENTS);
   size_t n = tape.tapestats(TapeInfos::NUM_INDEPENDENTS);
   size_t s = tape.tapestats(TapeInfos::NUM_SWITCHES);
   tape.end_sweep();
-
+  // reallocate memory if struct dims didnt match
   if (alf.s != s || alf.n != n || alf.m != m) {
     alf.y.resize(m);
     alf.z.resize(s);
@@ -69,7 +69,7 @@ int abs_normal_struct(short tag, const std::vector<double> &x,
   alf.n = n;
   alf.m = m;
   alf.s = s;
-
+  
   return abs_normal(tag, static_cast<int>(alf.m), static_cast<int>(alf.n),
                     static_cast<int>(alf.s), x.data(), alf.y.data(),
                     alf.z.data(), alf.cz.data(), alf.cy.data(), alf.A.data(),
@@ -102,13 +102,15 @@ int abs_normal(short tag,       /* tape identifier */
   std::vector<double> res(n + s);
 
   zos_pl_forward(tag, m, n, 1, x, y, z);
+  // loop trough first s rows for switched
   for (size_t i = 0; i < s; i++) {
     fos_pl_reverse(tag, m, n, static_cast<int>(s), static_cast<int>(i),
                    res.data());
-    cz[i] = z[i];
     for (int j = 0; j < n; j++) {
       Z[i][j] = res[j];
     }
+    // cz = z - L|z|
+    cz[i] = z[i];
     for (size_t j = 0; j < s; j++) {
       /* L[i][i] .. L[i][s] are theoretically zero,
        *  we probably don't need to copy them */
@@ -118,13 +120,15 @@ int abs_normal(short tag,       /* tape identifier */
       }
     }
   }
+  // loop through deps with rows s+i
   for (int i = 0; i < m; i++) {
     fos_pl_reverse(tag, m, n, static_cast<int>(s), static_cast<int>(s + i),
                    res.data());
-    cy[i] = y[i];
     for (int j = 0; j < n; j++) {
       Y[i][j] = res[j];
     }
+    //cy = y - L|z|
+    cy[i] = y[i];
     for (size_t j = 0; j < s; j++) {
       J[i][j] = res[j + n];
       cy[i] = cy[i] - J[i][j] * fabs(z[j]);
@@ -138,6 +142,7 @@ int abs_normal(short tag,       /* tape identifier */
 int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
                       absLinearFormRadius &alfr) {
 
+  // get indep, deps, and num_switches from the tape
   ValueTape &tape = findTape(tag);
   tape.init_sweep<ValueTape::Forward>();
   size_t m = tape.tapestats(TapeInfos::NUM_DEPENDENTS);
@@ -145,9 +150,16 @@ int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
   size_t s = tape.tapestats(TapeInfos::NUM_SWITCHES);
   tape.end_sweep();
 
+  // reallocate memory required for forward if struct dims didnt match
   if (alfr.s != s || alfr.n != n || alfr.m != m) {
     alfr.y.resize(m);
     alfr.z.resize(s);
+    alfr.cy.resize(m);
+    alfr.A_mem.resize(m * n);
+    alfr.A.resize(m);
+    for (size_t i = 0; i < m; i++) {
+      alfr.A[i] = &alfr.A_mem.data()[i * n];
+    }
     alfr.lipzEstimate.resize(s); // assign also resizes?
     alfr.lipzEstimate.assign(s, 1.0);
     alfr.is_almost_active.resize(s);
@@ -159,7 +171,7 @@ int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
       alfr.n = n;
     }
   }
-
+  // compute distance to last stored x 
   double dist_in = 0.0;
   for (size_t i = 0; i < n; i++) {
     double diff = x[i] - alfr.lastx[i];
@@ -175,16 +187,13 @@ int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
   alfr.lastx = x;
   int num_almost_active = static_cast<int>(std::count(
       alfr.is_almost_active.begin(), alfr.is_almost_active.end(), true));
-
+  // change sizes for variable matrices 
   if (alfr.num_almost_active != num_almost_active) {
     alfr.z_almost_active.resize(num_almost_active);
     alfr.cz.resize(num_almost_active);
-    alfr.cy.resize(m);
-    alfr.A_mem.resize(m * n);
     alfr.B_mem.resize(m * num_almost_active);
     alfr.Z_mem.resize(num_almost_active * n);
     alfr.L_mem.resize(num_almost_active * num_almost_active);
-    alfr.A.resize(m);
     alfr.B.resize(m);
     alfr.Z.resize(num_almost_active);
     alfr.L.resize(num_almost_active);
@@ -193,7 +202,6 @@ int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
       alfr.L[i] = &alfr.L_mem.data()[i * num_almost_active];
     }
     for (size_t i = 0; i < m; i++) {
-      alfr.A[i] = &alfr.A_mem.data()[i * n];
       alfr.B[i] = &alfr.B_mem.data()[i * num_almost_active];
     }
     alfr.num_almost_active = num_almost_active;
@@ -201,17 +209,19 @@ int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
 
   std::vector<double> res(n + s);
 
+  // compute L, Z matrices for almostactive switches 
   int row = 0;
   for (size_t i = 0; i < s; i++) {
     if (alfr.is_almost_active[i]) {
       fos_pl_reverse_radius(tag, static_cast<int>(m), static_cast<int>(n),
                             static_cast<int>(s), static_cast<int>(i),
                             res.data(), alfr.is_almost_active);
-      alfr.cz[row] = alfr.z[i];
       alfr.z_almost_active[row] = alfr.z[i];
       for (size_t j = 0; j < n; j++) {
         alfr.Z[row][j] = res[j];
       }
+      // cz = z - L|z|
+      alfr.cz[row] = alfr.z[i];
       int col = 0;
       for (size_t j = 0; j < s; j++) {
         /* L[i][i] .. L[i][s] are theoretically zero,
@@ -227,14 +237,16 @@ int abs_normal_radius(short tag, const std::vector<double> &x, double rad_in,
       row++;
     }
   }
+  // compute A, B with argument s+i for row
   for (size_t i = 0; i < m; i++) {
     fos_pl_reverse_radius(tag, static_cast<int>(m), static_cast<int>(n),
                           static_cast<int>(s), static_cast<int>(s + i),
                           res.data(), alfr.is_almost_active);
-    alfr.cy[i] = alfr.y[i];
     for (size_t j = 0; j < n; j++) {
       alfr.A[i][j] = res[j];
     }
+    //cy = y - L|z|
+    alfr.cy[i] = alfr.y[i];
     int col = 0;
     for (size_t j = 0; j < s; j++) {
       if (alfr.is_almost_active[j]) {
