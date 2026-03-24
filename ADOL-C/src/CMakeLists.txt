@@ -54,7 +54,6 @@ target_sources(adolc PRIVATE
                tape_interface.cpp
                zos_forward.cpp
                zos_pl_forward.cpp               
-      	       zos_pl_forward_radius.cpp
               )
 
 add_subdirectory(drivers)
