@@ -23,7 +23,6 @@
 #include <adolc/valuetape/valuetape.h>
 #include <algorithm>
 #include <functional>
-#include <iostream>
 #include <math.h>
 #include <vector>
 

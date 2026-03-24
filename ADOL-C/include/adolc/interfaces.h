@@ -465,8 +465,8 @@ ADOLC_API int indopro_forward_absnormal(short, int, int, int, const double *,
                                         uint **);
 /*--------------------------------------------------------------------------*/
 ADOLC_API int fos_pl_reverse(short, int, int, int, int, double *);
-ADOLC_API int fos_pl_reverse_radius(short, int, int, int, int, double *,
-                                    std::vector<bool> &);
+ADOLC_API int fos_pl_reverse_almost_active(short, int, int, int, int, double *,
+                                           std::vector<bool> &);
 ADOLC_API int fos_pl_sig_reverse(short, int, int, int, const short *,
                                  const double *, double *);
 
