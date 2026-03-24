@@ -19,8 +19,8 @@
 #include <adolc/adolcexport.h>
 #include <adolc/interfaces.h>
 #include <adolc/internal/common.h>
-#include <vector>
 #include <functional>
+#include <vector>
 
 BEGIN_C_DECLS
 
@@ -113,7 +113,7 @@ struct absLinearForm {
   std::vector<double *> L;
 };
 
-struct absLinearFormRadius : public absLinearForm {
+struct absLinearFormAlmostActive : public absLinearForm {
   std::vector<double> z_full;
   size_t s_full;
   std::vector<bool> is_almost_active;
@@ -121,8 +121,13 @@ struct absLinearFormRadius : public absLinearForm {
 
 ADOLC_API int abs_normal_struct(short tag, const std::vector<double> &x,
                                 absLinearForm &alf);
-ADOLC_API int abs_normal_radius(short tag, const std::vector<double> &x, 
-                      absLinearFormRadius &alfr, std::function<int(const std::vector<double> &x, const std::vector<double> &z_full, std::vector<bool> &is_almost_active)> compute_almost_active); 
+ADOLC_API int
+abs_normal_almost_active(short tag, const std::vector<double> &x,
+                         absLinearFormAlmostActive &alfaa,
+                         std::function<int(const std::vector<double> &x,
+                                           const std::vector<double> &z_full,
+                                           std::vector<bool> &is_almost_active)>
+                             compute_almost_active);
 
 ADOLC_API int abs_normal(short tag, int m, int n, int swchk, const double *x,
                          double *y, double *z, double *cz, double *cy,

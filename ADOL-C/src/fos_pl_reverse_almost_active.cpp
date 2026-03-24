@@ -14,8 +14,8 @@
 
 #define _FOS_ 1
 #define _ABS_NORM_ 1
-#define _ABS_NORM_RAD_ 1
+#define _ABS_NORM_ALMOST_ACTIVE_ 1
 #include <fo_rev.cpp>
-#undef _ABS_NORM_RAD_
+#undef _ABS_NORM_ALMOST_ACTIVE_
 #undef _ABS_NORM_
 #undef _FOS_

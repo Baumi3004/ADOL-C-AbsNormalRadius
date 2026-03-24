@@ -445,9 +445,6 @@ ADOLC_API int int_reverse_safe(short, int, int, int, const bitword_t *const *,
 ADOLC_API size_t get_num_switches(short);
 ADOLC_API int zos_pl_forward(short, int, int, int, const double *, double *,
                              double *);
-ADOLC_API int zos_pl_forward_radius(short, int, int, int, const double *, 
-                             double *, double *, double *, double, double, 
-                             std::vector<bool>&);
 ADOLC_API short firstsign(int, const double *, const double *);
 ADOLC_API short ext_firstsign(double, double, int, double *, double *);
 ADOLC_API short ext_firstsign2(double, int, double *, double *);
@@ -468,8 +465,8 @@ ADOLC_API int indopro_forward_absnormal(short, int, int, int, const double *,
                                         uint **);
 /*--------------------------------------------------------------------------*/
 ADOLC_API int fos_pl_reverse(short, int, int, int, int, double *);
-ADOLC_API int fos_pl_reverse_radius(short, int, int, int, int, double *, 
-                                  std::vector<bool>&);
+ADOLC_API int fos_pl_reverse_radius(short, int, int, int, int, double *,
+                                    std::vector<bool> &);
 ADOLC_API int fos_pl_sig_reverse(short, int, int, int, const short *,
                                  const double *, double *);
 

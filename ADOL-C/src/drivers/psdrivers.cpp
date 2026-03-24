@@ -139,12 +139,12 @@ int abs_normal(short tag,       /* tape identifier */
 }
 
 /*--------------------------------------------------------------------------*/
-int abs_normal_radius(short tag, const std::vector<double> &x,
-                      absLinearFormRadius &alfr,
-                      std::function<int(const std::vector<double> &x,
-                                        const std::vector<double> &z_full,
-                                        std::vector<bool> &is_almost_active)>
-                          compute_almost_active) {
+int abs_normal_almost_active(
+    short tag, const std::vector<double> &x, absLinearFormAlmostActive &alfaa,
+    std::function<int(const std::vector<double> &x,
+                      const std::vector<double> &z_full,
+                      std::vector<bool> &is_almost_active)>
+        compute_almost_active) {
 
   // get indep, deps, and num_switches from the tape
   ValueTape &tape = findTape(tag);
@@ -155,47 +155,47 @@ int abs_normal_radius(short tag, const std::vector<double> &x,
   tape.end_sweep();
 
   // reallocate memory required for forward if struct dims didnt match
-  if (alfr.s_full != s_full || alfr.n != n || alfr.m != m) {
-    alfr.y.resize(m);
-    alfr.z_full.resize(s_full);
-    alfr.cy.resize(m);
-    alfr.A_mem.resize(m * n);
-    alfr.A.resize(m);
+  if (alfaa.s_full != s_full || alfaa.n != n || alfaa.m != m) {
+    alfaa.y.resize(m);
+    alfaa.z_full.resize(s_full);
+    alfaa.cy.resize(m);
+    alfaa.A_mem.resize(m * n);
+    alfaa.A.resize(m);
     for (size_t i = 0; i < m; i++) {
-      alfr.A[i] = &alfr.A_mem.data()[i * n];
+      alfaa.A[i] = &alfaa.A_mem.data()[i * n];
     }
-    alfr.is_almost_active.resize(s_full);
-    alfr.s_full = s_full;
-    alfr.m = m;
-    alfr.n = n;
-    alfr.s = -1;
+    alfaa.is_almost_active.resize(s_full);
+    alfaa.s_full = s_full;
+    alfaa.m = m;
+    alfaa.n = n;
+    alfaa.s = -1;
   }
 
   zos_pl_forward(tag, static_cast<int>(m), static_cast<int>(n), 1, x.data(),
-                 alfr.y.data(), alfr.z_full.data());
+                 alfaa.y.data(), alfaa.z_full.data());
   // CALLBACK
-  compute_almost_active(x, alfr.z_full, alfr.is_almost_active);
+  compute_almost_active(x, alfaa.z_full, alfaa.is_almost_active);
 
-  size_t s = std::count(alfr.is_almost_active.begin(),
-                        alfr.is_almost_active.end(), true);
+  size_t s = std::count(alfaa.is_almost_active.begin(),
+                        alfaa.is_almost_active.end(), true);
   //  change sizes for variable matrices
-  if (alfr.s != s) {
-    alfr.z.resize(s);
-    alfr.cz.resize(s);
-    alfr.B_mem.resize(m * s);
-    alfr.Z_mem.resize(s * n);
-    alfr.L_mem.resize(s * s);
-    alfr.B.resize(m);
-    alfr.Z.resize(s);
-    alfr.L.resize(s);
+  if (alfaa.s != s) {
+    alfaa.z.resize(s);
+    alfaa.cz.resize(s);
+    alfaa.B_mem.resize(m * s);
+    alfaa.Z_mem.resize(s * n);
+    alfaa.L_mem.resize(s * s);
+    alfaa.B.resize(m);
+    alfaa.Z.resize(s);
+    alfaa.L.resize(s);
     for (size_t i = 0; i < s; i++) {
-      alfr.Z[i] = &alfr.Z_mem.data()[i * n];
-      alfr.L[i] = &alfr.L_mem.data()[i * s];
+      alfaa.Z[i] = &alfaa.Z_mem.data()[i * n];
+      alfaa.L[i] = &alfaa.L_mem.data()[i * s];
     }
     for (size_t i = 0; i < m; i++) {
-      alfr.B[i] = &alfr.B_mem.data()[i * s];
+      alfaa.B[i] = &alfaa.B_mem.data()[i * s];
     }
-    alfr.s = s;
+    alfaa.s = s;
   }
 
   std::vector<double> res(n + s_full);
@@ -203,25 +203,26 @@ int abs_normal_radius(short tag, const std::vector<double> &x,
   // compute L, Z matrices for almostactive switches
   int row = 0;
   for (size_t i = 0; i < s_full; i++) {
-    if (alfr.is_almost_active[i]) {
-      fos_pl_reverse_radius(tag, static_cast<int>(m), static_cast<int>(n),
-                            static_cast<int>(s_full), static_cast<int>(i),
-                            res.data(), alfr.is_almost_active);
-      alfr.z[row] = alfr.z_full[i];
+    if (alfaa.is_almost_active[i]) {
+      fos_pl_reverse_almost_active(
+          tag, static_cast<int>(m), static_cast<int>(n),
+          static_cast<int>(s_full), static_cast<int>(i), res.data(),
+          alfaa.is_almost_active);
+      alfaa.z[row] = alfaa.z_full[i];
       for (size_t j = 0; j < n; j++) {
-        alfr.Z[row][j] = res[j];
+        alfaa.Z[row][j] = res[j];
       }
       // cz = z - L|z|
-      alfr.cz[row] = alfr.z_full[i];
+      alfaa.cz[row] = alfaa.z_full[i];
       int col = 0;
       for (size_t j = 0; j < s_full; j++) {
         /* L[i][i] .. L[i][s_full] are theoretically zero,
          *  we probably don't need to copy them */
-        if (alfr.is_almost_active[j]) {
-          alfr.L[row][col] = res[j + n];
+        if (alfaa.is_almost_active[j]) {
+          alfaa.L[row][col] = res[j + n];
           if (j < i) {
-            alfr.cz[row] =
-                alfr.cz[row] - alfr.L[row][col] * fabs(alfr.z_full[j]);
+            alfaa.cz[row] =
+                alfaa.cz[row] - alfaa.L[row][col] * fabs(alfaa.z_full[j]);
           }
           col++;
         }
@@ -231,19 +232,19 @@ int abs_normal_radius(short tag, const std::vector<double> &x,
   }
   // compute A, B with argument s+i for row
   for (size_t i = 0; i < m; i++) {
-    fos_pl_reverse_radius(
+    fos_pl_reverse_almost_active(
         tag, static_cast<int>(m), static_cast<int>(n), static_cast<int>(s_full),
-        static_cast<int>(s_full + i), res.data(), alfr.is_almost_active);
+        static_cast<int>(s_full + i), res.data(), alfaa.is_almost_active);
     for (size_t j = 0; j < n; j++) {
-      alfr.A[i][j] = res[j];
+      alfaa.A[i][j] = res[j];
     }
     // cy = y - L|z|
-    alfr.cy[i] = alfr.y[i];
+    alfaa.cy[i] = alfaa.y[i];
     int col = 0;
     for (size_t j = 0; j < s_full; j++) {
-      if (alfr.is_almost_active[j]) {
-        alfr.B[i][col] = res[j + n];
-        alfr.cy[i] = alfr.cy[i] - alfr.B[i][col] * fabs(alfr.z_full[j]);
+      if (alfaa.is_almost_active[j]) {
+        alfaa.B[i][col] = res[j + n];
+        alfaa.cy[i] = alfaa.cy[i] - alfaa.B[i][col] * fabs(alfaa.z_full[j]);
         col++;
       }
     }
