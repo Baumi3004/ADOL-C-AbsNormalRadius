@@ -1,8 +1,8 @@
 /*----------------------------------------------------------------------------
  ADOL-C -- Automatic Differentiation by Overloading in C++
- File:     fos_reverse.c
+ File:     fos_pl_reverse_reduced.cpp
  Revision: $Id$
- Contents: fos_reverse (first-order-scalar reverse mode)
+ Contents: fos_pl_reverse_reduced (first-order-scalar reverse mode for reduced switches)
 
  Copyright (c) Kshitij Kulshreshtha
 
@@ -10,12 +10,12 @@
  Any use, reproduction, or distribution of the software constitutes
  recipient's acceptance of the terms of the accompanying license file.
 
-----------------------------------------------------------------------------*/
+ ----------------------------------------------------------------------------*/
 
 #define _FOS_ 1
 #define _ABS_NORM_ 1
-#define _ABS_NORM_ALMOST_ACTIVE_ 1
+#define _ABS_NORM_REDUCED_ 1
 #include <fo_rev.cpp>
-#undef _ABS_NORM_ALMOST_ACTIVE_
+#undef _ABS_NORM_REDUCED_
 #undef _ABS_NORM_
 #undef _FOS_

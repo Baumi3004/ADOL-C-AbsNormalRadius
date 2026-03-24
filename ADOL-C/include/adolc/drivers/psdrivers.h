@@ -113,21 +113,21 @@ struct absLinearForm {
   std::vector<double *> L;
 };
 
-struct absLinearFormAlmostActive : public absLinearForm {
+struct absLinearFormReduced : public absLinearForm {
   std::vector<double> z_full;
   size_t s_full;
-  std::vector<bool> is_almost_active;
+  std::vector<bool> is_switch;
 };
 
 ADOLC_API int abs_normal_struct(short tag, const std::vector<double> &x,
                                 absLinearForm &alf);
 ADOLC_API int
-abs_normal_almost_active(short tag, const std::vector<double> &x,
-                         absLinearFormAlmostActive &alfaa,
+abs_normal_reduced(short tag, const std::vector<double> &x,
+                         absLinearFormReduced &alfr,
                          std::function<int(const std::vector<double> &x,
                                            const std::vector<double> &z_full,
-                                           std::vector<bool> &is_almost_active)>
-                             compute_almost_active);
+                                           std::vector<bool> &is_switch)>
+                             compute_reduced);
 
 ADOLC_API int abs_normal(short tag, int m, int n, int swchk, const double *x,
                          double *y, double *z, double *cz, double *cy,

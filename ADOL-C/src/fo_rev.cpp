@@ -213,18 +213,18 @@ BEGIN_C_DECLS
 /****************************************************************************/
 /* First-Order Scalar Reverse Pass.                                         */
 /****************************************************************************/
-#ifdef _ABS_NORM_ALMOST_ACTIVE_
+#ifdef _ABS_NORM_REDUCED_
 /****************************************************************************/
 /* Abs-Normal extended adjoint row computation.                             */
 /****************************************************************************/
-int fos_pl_reverse_almost_active(
+int fos_pl_reverse_reduced(
     short tnum,      /* tape id */
     int depen,       /* consistency chk on # of deps */
     int indep,       /* consistency chk on # of indeps */
     int swchk,       /* consistency chk on # of switches */
     int rownum,      /* required row no. of abs-normal form */
     double *results, /*  coefficient vectors */
-    std::vector<bool> &is_almost_active) /* which switches treat active*/
+    std::vector<bool> &is_switch) /* which switches treat active*/
 #elif defined(_ABS_NORM_)
 /****************************************************************************/
 /* Abs-Normal extended adjoint row computation.                             */
@@ -1602,9 +1602,9 @@ int int_reverse_safe(
 
       ASSIGN_A(Ares, ADJOINT_BUFFER[res])
       ASSIGN_A(Aarg, ADJOINT_BUFFER[arg])
-#if defined(_ABS_NORM_ALMOST_ACTIVE_)
-      if (is_almost_active[switchnum]) {
-        // if switch is almost active treat switch variable as an dependent
+#if defined(_ABS_NORM_REDUCED_)
+      if (is_switch[switchnum]) {
+        // if switch is reduced treat switch variable as an dependent
         // variable and abolute value of switch as independent variable
         if (rownum == switchnum) {
           // start reverse mode here
@@ -1615,7 +1615,7 @@ int int_reverse_safe(
           *Ares = 0.0;
         }
       } else {
-        // if switch is NOT almost active, do standard reverse mode with
+        // if switch is NOT reduced, do standard reverse mode with
         // sign(switch)
         revreal aTmp = *Ares;
         *Ares = 0.0;

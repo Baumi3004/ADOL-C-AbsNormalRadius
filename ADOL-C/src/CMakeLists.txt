@@ -18,7 +18,7 @@ target_sources(adolc PRIVATE
                fos_forward.cpp
                fos_pl_forward.cpp
                fos_pl_reverse.cpp
-               fos_pl_reverse_almost_active.cpp
+               fos_pl_reverse_reduced.cpp
                fos_pl_sig_forward.cpp
                fos_reverse.cpp
                fov_forward.cpp
