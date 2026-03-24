@@ -497,12 +497,6 @@ BEGIN_C_DECLS
 /****************************************************************************/
 /* Zero Order Scalar version of the forward mode.                           */
 /****************************************************************************/
-#if defined(_ABS_NORM_RAD_)
-int zos_pl_forward_radius(short tnum, int depcheck, int indcheck, int keep,
-                   const double *basepoint, double *valuepoint, double *swargs, 
-                   double *lipz, double dist_in, double rad_in, 
-                   std::vector<bool>& is_almost_active)
-#else
 #if defined(_ABS_NORM_)
 int zos_pl_forward(short tnum, int depcheck, int indcheck, int keep,
                    const double *basepoint, double *valuepoint, double *swargs)
@@ -521,7 +515,6 @@ int zos_forward_nk(
     const double *basepoint, /* independent variable values */
     double *valuepoint)      /* dependent variable values */
 
-#endif
 #endif // _ABS_NORM_
 
 #else
@@ -3882,36 +3875,8 @@ int hov_forward(
           MINDEC(ret_c, 2);
       }
 #if defined(_ABS_NORM_) || defined(_ABS_NORM_SIG_)
-      #if defined(_ABS_NORM_RAD_) 
-      // use the dist_in argument to figure out the distance beween inputs
-        if (dist_in > 1e-10){
-          // the swargs input is used for the old value of z here!
-          // now compare the distance of x inputs and switch values to estimate L constant
-          const double lip_estimate = abs(swargs[switchnum] - dp_T0[arg])/dist_in; 
-          if (lip_estimate > lipz[switchnum]) {
-            // simply use new estimate if it is larger
-            lipz[switchnum] = lip_estimate; 
-          } else {
-            //else use convex compunation to decrease estimte
-            //Worst case assumption: After true L, estimate is 0 for n times.
-            //Then the estimate should stille be 0.5*L 
-            //Since Lip_n = param^n*Lip_1, decay is 0.5^n
-            const double decay_param = std::pow(0.5, indcheck) ;
-
-            lipz[switchnum] = decay_param*lip_estimate + (1.0 - decay_param)*lipz[switchnum]; 
-          }
-
-        }
-        // Now use the radius variable to estimate if the switch can be active within this radius
-        if (abs(dp_T0[arg]) < lipz[switchnum]*rad_in){ 
-          is_almost_active[switchnum] = true;    
-        } else {
-          is_almost_active[switchnum] = false; 
-        }
-      #endif
       tape.signature()[switchnum] = dp_T0[arg];
       swargs[switchnum] = dp_T0[arg];
-
 #endif
 #endif /* !_NTIGHT_ */
 
@@ -5996,7 +5961,7 @@ int hov_forward(
 }
 
 /****************************************************************************/
-#if defined(_ZOS_) && defined(_ABS_NORM_) && !defined(_ABS_NORM_RAD_)
+#if defined(_ZOS_) && defined(_ABS_NORM_)
 size_t get_num_switches(short tapeId) {
   ValueTape &tape = findTape(tapeId);
   tape.init_sweep<ValueTape::Forward>();
