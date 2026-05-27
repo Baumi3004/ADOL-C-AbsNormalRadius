@@ -19,6 +19,9 @@
 #include <adolc/adolcexport.h>
 #include <adolc/interfaces.h>
 #include <adolc/internal/common.h>
+#include <cmath>
+#include <cstddef>
+#include <vector>
 
 namespace ADOLC {
 /**
@@ -49,12 +52,74 @@ namespace ADOLC {
  */
 template <typename T>
 concept AbsNormalFormType = requires(T &t) {
-  t.Y;
-  t.J;
-  t.Z;
-  t.L;
-  t.cy;
-  t.cz;
+  t.get_m();
+  t.get_n();
+  t.get_s();
+  t.get_Y();
+  t.get_J();
+  t.get_Z();
+  t.get_L();
+  t.get_y();
+  t.get_z();
+};
+
+struct DenseAbsNormalForm {
+private:
+  size_t n = 0;
+  size_t m = 0;
+  size_t s = 0;
+
+  std::vector<double *> Y;
+  std::vector<double *> J;
+  std::vector<double *> Z;
+  std::vector<double *> L;
+
+  std::vector<double> Y_storage;
+  std::vector<double> J_storage;
+  std::vector<double> Z_storage;
+  std::vector<double> L_storage;
+
+  std::vector<double> cz;
+  std::vector<double> cy;
+
+  std::vector<double> y;
+  std::vector<double> z;
+
+public:
+  // 2. Fixed return types and added const-correctness
+  size_t get_m() const { return m; }
+  size_t get_n() const { return n; }
+  size_t get_s() const { return s; }
+
+  std::vector<double> &get_y() { return y; }
+  std::vector<double> &get_z() { return z; }
+
+  double **get_L() { return L.data(); }
+  double **get_Y() { return Y.data(); }
+  double **get_J() { return J.data(); }
+  double **get_Z() { return Z.data(); }
+
+  std::vector<double> &get_cy() { return cy; }
+  std::vector<double> &get_cz() { return cz; }
+
+  void update_cy();
+  void update_cz();
+
+  void resize(size_t num_in, size_t num_out, size_t num_switch);
+  static DenseAbsNormalForm fromTape(short tape_id);
+
+  // Constructors
+  DenseAbsNormalForm() = default;
+  DenseAbsNormalForm(size_t num_in, size_t num_out, size_t num_switch) {
+    resize(num_in, num_out, num_switch); // Added missing semicolon
+  }
+
+  // 4. Memory Safety: Prevent copying, explicitly define Move semantics
+  DenseAbsNormalForm(const DenseAbsNormalForm &) = delete;
+  DenseAbsNormalForm &operator=(const DenseAbsNormalForm &) = delete;
+
+  DenseAbsNormalForm(DenseAbsNormalForm &&other) noexcept;
+  DenseAbsNormalForm &operator=(DenseAbsNormalForm &&other) noexcept;
 };
 
 } // namespace ADOLC
