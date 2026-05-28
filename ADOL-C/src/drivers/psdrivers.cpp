@@ -124,8 +124,6 @@ void DenseAbsNormalForm::update_cz() {
   }
 }
 
-// } // namespace ADOLC
-
 BEGIN_C_DECLS
 
 /****************************************************************************/
@@ -286,14 +284,12 @@ int directional_active_gradient(short tag,       /* trace identifier */
 
 END_C_DECLS
 
-// namespace ADOLC {
 int abs_normal(short tag, const double *x, DenseAbsNormalForm &anf,
-               bool update_consts = true) {
-  int rc = abs_normal(
-      tag, static_cast<int>(anf.get_m()), static_cast<int>(anf.get_n()),
-      static_cast<int>(anf.get_s()), x, anf.get_y().data(), anf.get_z().data(),
-      anf.get_cz().data(), anf.get_cy().data(), anf.get_Y(), anf.get_J(),
-      anf.get_Z(), anf.get_L());
+               bool update_consts) {
+  int rc = abs_normal(tag, static_cast<int>(anf.m), static_cast<int>(anf.n),
+                      static_cast<int>(anf.s), x, anf.y.data(), anf.z.data(),
+                      anf.cz.data(), anf.cy.data(), anf.Y.data(), anf.J.data(),
+                      anf.Z.data(), anf.L.data());
   if (update_consts) {
     anf.update_cy();
     anf.update_cz();

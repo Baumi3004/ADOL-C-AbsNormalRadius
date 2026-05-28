@@ -52,19 +52,19 @@ namespace ADOLC {
  */
 template <typename T>
 concept AbsNormalFormType = requires(T &t) {
-  t.get_m();
-  t.get_n();
-  t.get_s();
-  t.get_Y();
-  t.get_J();
-  t.get_Z();
-  t.get_L();
-  t.get_y();
-  t.get_z();
+  t.m;
+  t.n;
+  t.s;
+  t.Y;
+  t.J;
+  t.Z;
+  t.L;
+  t.y;
+  t.z;
 };
 
 struct DenseAbsNormalForm {
-private:
+public:
   size_t n = 0;
   size_t m = 0;
   size_t s = 0;
@@ -81,46 +81,48 @@ private:
 
   std::vector<double> cz;
   std::vector<double> cy;
-
   std::vector<double> y;
   std::vector<double> z;
 
-public:
-  // 2. Fixed return types and added const-correctness
-  size_t get_m() const { return m; }
-  size_t get_n() const { return n; }
-  size_t get_s() const { return s; }
-
-  std::vector<double> &get_y() { return y; }
-  std::vector<double> &get_z() { return z; }
-
-  double **get_L() { return L.data(); }
-  double **get_Y() { return Y.data(); }
-  double **get_J() { return J.data(); }
-  double **get_Z() { return Z.data(); }
-
-  std::vector<double> &get_cy() { return cy; }
-  std::vector<double> &get_cz() { return cz; }
-
+  /** @brief Updates cy based on current y, J, and |z|. */
   void update_cy();
+
+  /** @brief Updates cz based on current z, L, and |z|. */
   void update_cz();
 
+  /** @brief Resizes all storage vectors used for the ABS-normal form. */
   void resize(size_t num_in, size_t num_out, size_t num_switch);
+
+  /** @brief Extracts dimensions from a tape and creates a DenseAbsNormalForm object. */
   static DenseAbsNormalForm fromTape(short tape_id);
 
-  // Constructors
   DenseAbsNormalForm() = default;
+
+  /** @brief Constructor that initializes storage for the specified dimensions. */
   DenseAbsNormalForm(size_t num_in, size_t num_out, size_t num_switch) {
-    resize(num_in, num_out, num_switch); // Added missing semicolon
+    resize(num_in, num_out, num_switch);
   }
 
-  // 4. Memory Safety: Prevent copying, explicitly define Move semantics
   DenseAbsNormalForm(const DenseAbsNormalForm &) = delete;
   DenseAbsNormalForm &operator=(const DenseAbsNormalForm &) = delete;
 
+  /** @brief Move constructor. */
   DenseAbsNormalForm(DenseAbsNormalForm &&other) noexcept;
+
+  /** @brief Move assignment operator. */
   DenseAbsNormalForm &operator=(DenseAbsNormalForm &&other) noexcept;
 };
+
+/**
+ * @brief High-level interface to compute the ABS-normal form into a DenseAbsNormalForm object.
+ *
+ * @param tag           Tape identifier.
+ * @param x             Base point (input values).
+ * @param anf           DenseAbsNormalForm object to store results.
+ * @param update_consts If true, updates cy and cz after evaluation.
+ */
+int abs_normal(short tag, const double *x, DenseAbsNormalForm &anf,
+               bool update_consts = true);
 
 } // namespace ADOLC
 BEGIN_C_DECLS
