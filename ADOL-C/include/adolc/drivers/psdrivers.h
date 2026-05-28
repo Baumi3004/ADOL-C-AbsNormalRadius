@@ -84,21 +84,23 @@ public:
   std::vector<double> y;
   std::vector<double> z;
 
-  /** @brief Updates cy based on current y, J, and |z|. */
+  /** @brief Updates cy = y - J|z|. */
   void update_cy();
 
-  /** @brief Updates cz based on current z, L, and |z|. */
+  /** @brief Updates cz = z - L|z|. */
   void update_cz();
 
   /** @brief Resizes all storage vectors used for the ABS-normal form. */
   void resize(size_t num_in, size_t num_out, size_t num_switch);
 
-  /** @brief Extracts dimensions from a tape and creates a DenseAbsNormalForm object. */
+  /** @brief Extracts dimensions from a tape and creates a DenseAbsNormalForm
+   * object. */
   static DenseAbsNormalForm fromTape(short tape_id);
 
   DenseAbsNormalForm() = default;
 
-  /** @brief Constructor that initializes storage for the specified dimensions. */
+  /** @brief Constructor that initializes storage for the specified dimensions.
+   */
   DenseAbsNormalForm(size_t num_in, size_t num_out, size_t num_switch) {
     resize(num_in, num_out, num_switch);
   }
@@ -114,7 +116,8 @@ public:
 };
 
 /**
- * @brief High-level interface to compute the ABS-normal form into a DenseAbsNormalForm object.
+ * @brief Interface to compute the ABS-normal form of a function on a tape
+ * at a point into a DenseAbsNormalForm object.
  *
  * @param tag           Tape identifier.
  * @param x             Base point (input values).
