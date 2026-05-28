@@ -58,6 +58,8 @@ void DenseAbsNormalForm::resize(size_t num_in, size_t num_out,
 
   y.resize(m, 0.0);
   z.resize(s, 0.0);
+  cy.resize(m, 0.0);
+  cz.resize(s, 0.0);
 }
 
 // Move constructor to prevent pointer corruption
