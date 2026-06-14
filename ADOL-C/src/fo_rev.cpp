@@ -217,7 +217,20 @@ BEGIN_C_DECLS
 /****************************************************************************/
 /* First-Order Scalar Reverse Pass.                                         */
 /****************************************************************************/
-#ifdef _ABS_NORM_
+#ifdef _ABS_NORM_REDUCED_
+/****************************************************************************/
+/* Abs-Normal extended adjoint with almost active switches                  */
+/****************************************************************************/
+int fos_pl_reverse_reduced(
+    short tnum, /* tape id */
+    int depen,  /* consistency chk on # of deps */
+    int indep,  /* consistency chk on # of indeps */
+    int swchk,  /* consistency chk on # of switches */
+    const double *lagrange, const double *lagrangeSwitch, double *results,
+    double *resultsSwitch, /* coefficient vectors*/
+    int numAlmostActive,
+    std::vector<bool> &isAlmostActive) /* which switches treat active*/
+#elif defined(_ABS_NORM_)
 /****************************************************************************/
 /* Abs-Normal extended adjoint row computation.                             */
 /****************************************************************************/
@@ -250,7 +263,19 @@ int fos_reverse(short tnum, /* tape id */
 /****************************************************************************/
 /* First-Order Vector Reverse Pass.                                         */
 /****************************************************************************/
-#ifdef _ABS_NORM_
+#ifdef _ABS_NORM_REDUCED_
+int fov_pl_reverse_reduced(
+    short tnum,                    /* tape id */
+    int depen,                     /* consistency chk on # of deps */
+    int indep,                     /* consistency chk on # of indeps */
+    int swchk, int nrows,          /* # of Jacobian rows being calculated */
+    const double *const *lagrange, /* domain weight vector */
+    const double *const *lagrangeSwitch,
+    double **results,       /* result matrix indeps*/
+    double **resultsSwitch, /* result matrix switchvars */
+    int numAlmostActive,
+    std::vector<bool> &isAlmostActive) /* which switches treat active*/
+#elif defined(_ABS_NORM_)
 int fov_pl_reverse(short tnum, /* tape id */
                    int depen,  /* consistency chk on # of deps */
                    int indep,  /* consistency chk on # of indeps */
@@ -319,6 +344,9 @@ int int_reverse_safe(
   size_t indexd = 0;
 #if defined(_ABS_NORM_) || defined(_ABS_NORM_SIG_)
   int switchnum = 0;
+#if defined(_ABS_NORM_REDUCED_)
+  int almostactiveidx = 0;
+#endif
 #endif
 
   /*--------------------------------------------------------------------------*/
@@ -474,6 +502,10 @@ int int_reverse_safe(
                              .info6 = tape.tapestats(TapeInfos::NUM_SWITCHES)});
   else
     switchnum = swchk - 1;
+#ifdef _ABS_NORM_REDUCED_
+  almostactiveidx = numAlmostActive - 1;
+#endif
+
 #endif
 
   /****************************************************************************/
@@ -1602,7 +1634,49 @@ int int_reverse_safe(
 
       ASSIGN_A(Ares, ADJOINT_BUFFER[res])
       ASSIGN_A(Aarg, ADJOINT_BUFFER[arg])
-#if defined(_ABS_NORM_)
+
+#if defined(_ABS_NORM_REDUCED_)
+#ifdef _FOS_
+      if (isAlmostActive[switchnum]) {
+        resultsSwitch[almostactiveidx] = *Ares;
+        *Ares = 0.0;
+
+        *Aarg += lagrangeSwitch[almostactiveidx];
+      } else {
+        revreal aTmp = *Ares;
+        *Ares = 0.0;
+        if (TARG > 0.0) {
+          *Aarg += aTmp;
+        } else {
+          *Aarg -= aTmp;
+        }
+      }
+#elif defined(_FOV_)
+      if (isAlmostActive[switchnum]) {
+        for (int row = 0; row < nrows; row++) {
+          resultsSwitch[row][almostactiveidx] = Ares[row];
+          Ares[row] = 0.0;
+        }
+        for (int row = 0; row < nrows; row++) {
+          Aarg[row] += lagrangeSwitch[row][almostactiveidx];
+        }
+      } else {
+        for (int row = 0; row < nrows; row++) {
+          revreal aTmp = Ares[row];
+          Ares[row] = 0.0;
+          if (TARG > 0.0) {
+            Aarg[row] += aTmp;
+          } else {
+            Aarg[row] -= aTmp;
+          }
+        }
+      }
+#endif // _FOS_
+      if (isAlmostActive[switchnum]) {
+        almostactiveidx--;
+      }
+      switchnum--;
+#elif defined(_ABS_NORM_)
 #ifdef _FOS_
       // The current adjoint of |z_i| contributes to the column corresponding
       // to |z_i| in the extended Jacobian
@@ -1611,7 +1685,7 @@ int int_reverse_safe(
       // The weight for z_i seeds the reverse sweep at its defining
       // switching variable, which could already hold accumulated values.
       *Aarg += lagrangeSwitch[switchnum];
-#elif _FOV_
+#elif defined(_FOV_)
       // The current adjoint of |z_i| contributes to the column corresponding
       // to |z_i| in the extended Jacobian
 
@@ -1780,8 +1854,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -1796,8 +1870,8 @@ int int_reverse_safe(
             AARG2_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG2_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG2_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -1844,8 +1918,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -1860,8 +1934,8 @@ int int_reverse_safe(
             AARG2_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG2_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG2_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -1907,8 +1981,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -1949,8 +2023,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -1988,7 +2062,7 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
           ARES_INC = 0;
 #else
-          ARES_INC = 0.0;
+            ARES_INC = 0.0;
 #endif
 
 #if !defined(_NTIGHT_)
@@ -2026,8 +2100,8 @@ int int_reverse_safe(
         AARG1_INC |= *Ares;
         ARES_INC = 0;
 #else
-        AARG1_INC += *Ares;
-        *Ares = 0.0;
+          AARG1_INC += *Ares;
+          *Ares = 0.0;
 #endif
       }
       rp_T[res] = tape.get_taylor();
@@ -2087,8 +2161,8 @@ int int_reverse_safe(
         AARG_INC |= *Ares;
         ARES_INC = 0;
 #else
-        AARG_INC += *Ares;
-        ARES_INC = 0.0;
+          AARG_INC += *Ares;
+          ARES_INC = 0.0;
 #endif
       }
       rp_T[res] = tape.get_taylor();
@@ -2122,7 +2196,7 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
           ARES_INC = 0;
 #else
-          ARES_INC = 0.0;
+            ARES_INC = 0.0;
 #endif
 
       rp_T[res] = tape.get_taylor();
@@ -2144,7 +2218,7 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
           ARES_INC = 0;
 #else
-          ARES_INC = 0.0;
+            ARES_INC = 0.0;
 #endif
       rp_T[res] = tape.get_taylor();
 #else
@@ -2168,8 +2242,8 @@ int int_reverse_safe(
         AARG_INC |= *Ares;
         ARES_INC = 0;
 #else
-        AARG_INC += *Ares;
-        ARES_INC = 0.0;
+          AARG_INC += *Ares;
+          ARES_INC = 0.0;
 #endif
       }
 
@@ -2190,7 +2264,7 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
       FOR_0_LE_l_LT_p RESULTS(l, indexi) = static_cast<bitword_t>(ARES_INC);
 #else
-      FOR_0_LE_l_LT_p RESULTS(l, indexi) = ARES_INC;
+        FOR_0_LE_l_LT_p RESULTS(l, indexi) = ARES_INC;
 #endif
 
       rp_T[res] = tape.get_taylor();
@@ -2228,7 +2302,7 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
           AARG_INC |= ARES_INC;
 #else
-          AARG_INC += ARES_INC;
+            AARG_INC += ARES_INC;
 #endif
 
       rp_T[res] = tape.get_taylor();
@@ -2264,7 +2338,7 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
           AARG_INC |= ARES_INC;
 #else
-          AARG_INC -= ARES_INC;
+            AARG_INC -= ARES_INC;
 #endif
 
       rp_T[res] = tape.get_taylor();
@@ -2308,11 +2382,11 @@ int int_reverse_safe(
 #if defined(_INT_REV_)
           AARG_INC |= ARES_INC;
 #else
-      {
-        revreal aTmp = *Ares;
-        ARES_INC = aTmp * TARG;
-        AARG_INC += aTmp * TRES;
-      }
+        {
+          revreal aTmp = *Ares;
+          ARES_INC = aTmp * TARG;
+          AARG_INC += aTmp * TRES;
+        }
 #endif
 #else
       ADOLCError::fail(ADOLCError::ErrorType::ADUBREF_VE_REF, CURRENT_LOCATION);
@@ -2431,8 +2505,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -2447,8 +2521,8 @@ int int_reverse_safe(
             AARG2_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG2_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG2_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -2489,8 +2563,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -2505,8 +2579,8 @@ int int_reverse_safe(
             AARG2_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG2_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG2_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -2540,8 +2614,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -2576,8 +2650,8 @@ int int_reverse_safe(
             AARG1_INC |= *Ares;
             ARES_INC = 0;
 #else
-            AARG1_INC += *Ares;
-            ARES_INC = 0.0;
+              AARG1_INC += *Ares;
+              ARES_INC = 0.0;
 #endif
           }
         else
@@ -2648,8 +2722,8 @@ int int_reverse_safe(
                 rp_A + edfct->firstIndLocation + n, ext_z_buffer.begin());
       ext_z = ext_z_buffer.data();
 #elif defined _FOV_
-      ext_Uq = myalloc2(edfct->q, m);
-      ext_Zq = myalloc2(edfct->q, n);
+        ext_Uq = myalloc2(edfct->q, m);
+        ext_Zq = myalloc2(edfct->q, n);
 #endif
       ext_x = rp_T + edfct->firstIndLocation;
       ext_y = rp_T + edfct->firstDepLocation;
@@ -2727,8 +2801,8 @@ int int_reverse_safe(
       ext_u = rp_A + edfct->firstDepLocation;
       ext_z = rp_A + edfct->firstIndLocation;
 #elif defined _FOV_
-      ext_Uq = myalloc2(edfct->q, m);
-      ext_Zq = myalloc2(edfct->q, n);
+        ext_Uq = myalloc2(edfct->q, m);
+        ext_Zq = myalloc2(edfct->q, n);
 #endif
       ext_x = rp_T + edfct->firstIndLocation;
       ext_y = rp_T + edfct->firstDepLocation;

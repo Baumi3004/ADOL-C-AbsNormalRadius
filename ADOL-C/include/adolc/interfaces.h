@@ -48,6 +48,7 @@
 
 #include <adolc/adolcexport.h>
 #include <adolc/internal/common.h>
+#include <vector>
 
 /****************************************************************************/
 /****************************************************************************/
@@ -496,6 +497,12 @@ ADOLC_API int fos_pl_reverse(short tag, int m, int n, int s,
                              const double *lagrangeSwitch, double *results,
                              double *resultsSwitch);
 
+ADOLC_API int fos_pl_reverse_reduced(short tag, int m, int n, int s,
+                                     const double *lagrange,
+                                     const double *lagrangeSwitch,
+                                     double *results, double *resultsSwitch,
+                                     int numAlmostActive,
+                                     std::vector<bool> &isAlmostActive);
 /**
  * @brief Computes several vector-Jacobian product of the extended Jacobian of
  * the abs-linearization.
@@ -518,6 +525,13 @@ ADOLC_API int fov_pl_reverse(short tag, int m, int n, int s, int nrow,
                              const double *const *lagrange,
                              const double *const *lagrangeSwitch,
                              double **results, double **resultsSwitch);
+
+ADOLC_API int fov_pl_reverse_reduced(short tag, int m, int n, int s, int nrow,
+                                     const double *const *lagrange,
+                                     const double *const *lagrangeSwitch,
+                                     double **results, double **resultsSwitch,
+                                     int numAlmostActive,
+                                     std::vector<bool> &isAlmostActive);
 
 ADOLC_API int fos_pl_sig_reverse(short, int, int, int, const short *,
                                  const double *, double *);
