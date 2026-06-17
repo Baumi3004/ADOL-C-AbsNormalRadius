@@ -164,27 +164,60 @@ int directional_active_gradient(short tag,       /* trace identifier */
 END_C_DECLS
 
 namespace ADOLC {
-template <>
-int abs_normal<UpdateConsts::True>(short tapeId, std::span<double> x,
-                                   AbsNormalForm &anf) {
 
-  int rc = ::abs_normal(
-      tapeId, static_cast<int>(anf.dims().m), static_cast<int>(anf.dims().n),
-      static_cast<int>(anf.dims().s), x.data(), anf.y.data(), anf.z.data(),
-      anf.Y.data(), anf.J.data(), anf.Z.data(), anf.L.data());
-  anf.updateCy();
-  anf.updateCz();
-  return rc;
-}
+int _abs_normal_reduced(
+    short tapeId, std::span<double> x, ReducedAbsNormalForm &anf,
+    std::function<std::vector<bool>(std::span<double>, std::span<double>)>
+        callback) {
 
-template <>
-int abs_normal<UpdateConsts::False>(short tapeId, std::span<double> x,
-                                    AbsNormalForm &anf) {
+  ANFShape shapes = anf.dims();
+  const size_t s = get_num_switches(tapeId);
 
-  int rc = ::abs_normal(
-      tapeId, static_cast<int>(anf.dims().m), static_cast<int>(anf.dims().n),
-      static_cast<int>(anf.dims().s), x.data(), anf.y.data(), anf.z.data(),
-      anf.Y.data(), anf.J.data(), anf.Z.data(), anf.L.data());
-  return rc;
+  zos_pl_forward(tapeId, static_cast<int>(shapes.m), static_cast<int>(shapes.n),
+                 1, x.data(), anf.y.data(), anf.z_full.data());
+
+  std::vector<bool> isAlmostActive = callback(anf.z_full, x);
+  size_t numAlmostActive =
+      std::count(isAlmostActive.begin(), isAlmostActive.end(), true);
+
+  anf.resize(shapes.m, shapes.n, numAlmostActive, s);
+
+  std::vector<double> lagrange_mem((shapes.m + numAlmostActive) * (shapes.m),
+                                   0.0);
+  std::vector<double *> lagrange(shapes.m + numAlmostActive);
+
+  std::vector<double> lagrangeSwitch_mem(
+      (shapes.m + numAlmostActive) * (numAlmostActive), 0.0);
+  std::vector<double *> lagrangeSwitch(shapes.m + numAlmostActive);
+
+  std::vector<double *> results(shapes.m + numAlmostActive);
+  std::vector<double *> resultsSwitch(shapes.m + numAlmostActive);
+
+  for (size_t depRow = 0; depRow < static_cast<size_t>(shapes.m); depRow++) {
+    lagrange[depRow] = lagrange_mem.data() + depRow * shapes.m;
+    lagrange[depRow][depRow] = 1.0;
+    lagrangeSwitch[depRow] =
+        lagrangeSwitch_mem.data() + depRow * numAlmostActive;
+    results[depRow] = anf.Y[depRow];
+    resultsSwitch[depRow] = anf.J[depRow];
+  }
+
+  for (size_t switchRow = 0; switchRow < numAlmostActive; switchRow++) {
+    lagrange[shapes.m + switchRow] =
+        lagrange_mem.data() + (shapes.m + switchRow) * shapes.m;
+    lagrangeSwitch[shapes.m + switchRow] =
+        lagrangeSwitch_mem.data() + (shapes.m + switchRow) * numAlmostActive;
+    lagrangeSwitch[shapes.m + switchRow][switchRow] = 1.0;
+    results[shapes.m + switchRow] = anf.Z[switchRow];
+    resultsSwitch[shapes.m + switchRow] = anf.L[switchRow];
+  }
+
+  fov_pl_reverse_reduced(
+      tapeId, static_cast<int>(shapes.m), static_cast<int>(shapes.n),
+      static_cast<int>(s), static_cast<int>(shapes.m + numAlmostActive),
+      lagrange.data(), lagrangeSwitch.data(), results.data(),
+      resultsSwitch.data(), static_cast<int>(numAlmostActive), isAlmostActive);
+
+  return 0;
 }
 } // namespace ADOLC

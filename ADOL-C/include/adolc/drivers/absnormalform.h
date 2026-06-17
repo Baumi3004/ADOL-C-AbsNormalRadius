@@ -24,6 +24,16 @@ ADOLC_API struct ANFShape {
 };
 
 /**
+ * @brief Stores dimensions for a reduced abs-normal form.
+ *
+ * Extends `ANFShape` with `s_full`, the total number of switching variables
+ * recorded on the tape.
+ */
+ADOLC_API struct ReducedANFShape : ANFShape {
+  size_t s_full{};
+};
+
+/**
  * @brief Structural concept for abs-normal form objects.
  *
  * A type models `AbsNormalFormType` when it exposes the six components of the
@@ -170,6 +180,57 @@ ADOLC_API struct AbsNormalForm {
    * views are rebuilt to point into the resized contiguous storage.
    */
   void resize(Shape dims);
+};
+
+
+ADOLC_API struct ReducedAbsNormalForm : AbsNormalForm {
+  using Shape = ReducedANFShape;
+
+  /// Principal dimensions including the full switching count.
+  Shape shape{};
+
+  /// Full switching-variable values at the evaluation point.
+  std::vector<double> z_full;
+
+  ~ReducedAbsNormalForm() = default;
+  ReducedAbsNormalForm() = default;
+
+  /**
+   * @brief Construct a dense reduced ABS-normal form.
+   */
+  explicit ReducedAbsNormalForm(Shape dims) { resize(dims); }
+
+  ReducedAbsNormalForm(ReducedAbsNormalForm &&) = default;
+  ReducedAbsNormalForm &operator=(ReducedAbsNormalForm &&) = default;
+
+  ReducedAbsNormalForm(const ReducedAbsNormalForm &) = delete;
+  ReducedAbsNormalForm &operator=(const ReducedAbsNormalForm &) = delete;
+
+  /**
+   * @brief Factory method that constructs a reduced Abs-normal form from an existing tape.
+   *
+   * Reads `s_full` directly from the tape's switch count and defaults the active 
+   * switch count `s` to 0.
+   */
+  static ReducedAbsNormalForm fromTape(short tapeId);
+
+  /**
+   * @brief Clear all stored data, including full switching states.
+   */
+  void clear();
+
+  /// @brief Return the principal and reduced abs-normal form dimensions.
+  Shape dims() const { return shape; }
+
+  /**
+   * @brief Resize using a Shape struct.
+   */
+  void resize(Shape dims);
+
+  /**
+   * @brief Resize the dense reduced abs-normal form explicitly with 4 parameters.
+   */
+  void resize(size_t m, size_t n, size_t s, size_t s_full);
 };
 
 } // namespace ADOLC

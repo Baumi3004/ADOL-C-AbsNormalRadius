@@ -438,4 +438,46 @@ BOOST_AUTO_TEST_CASE(AbsNormalForm_Struct_ClearAndResize) {
   BOOST_TEST(anf.cz.empty());
 }
 
+BOOST_AUTO_TEST_CASE(ReducedAbsNormalForm_NestedAbs) {
+  NestedAbsProblem problem{};
+  taping(problem);
+
+  auto anf = ADOLC::ReducedAbsNormalForm::fromTape(problem.tapeId);
+
+  std::vector<double> x_vec(problem.x.begin(), problem.x.end());
+
+  auto callback = [](std::span<double> z,
+                     std::span<double> x) -> std::vector<bool> {
+    std::vector<bool> active(z.size(), false);
+    if (!active.empty()) {
+      active[0] = true;
+    }
+    return active;
+  };
+
+  const int rc =
+      ADOLC::abs_normal_reduced(problem.tapeId, x_vec, anf, callback);
+
+  BOOST_TEST(rc == 0);
+  BOOST_TEST(anf.dims().m == problem.dimOut);
+  BOOST_TEST(anf.dims().n == problem.dimIn);
+  BOOST_TEST(anf.dims().s == 1);
+  BOOST_TEST(anf.dims().s_full == problem.numSwitches);
+
+  BOOST_TEST(anf.cy.size() == problem.dimOut);
+  BOOST_TEST(anf.cz.size() == 1);
+
+  checkCloseMatrix(anf.Z.data(),
+                   std::array<std::array<double, 2>, 1>{{{1.0, 0.0}}}, "Z");
+
+  checkCloseMatrix(anf.L.data(), std::array<std::array<double, 1>, 1>{{{0.0}}},
+                   "L");
+
+  checkCloseMatrix(anf.Y.data(),
+                   std::array<std::array<double, 2>, 1>{{{0.0, 0.0}}}, "Y");
+
+  checkCloseMatrix(anf.J.data(), std::array<std::array<double, 1>, 1>{{{2.0}}},
+                   "J");
+}
+
 BOOST_AUTO_TEST_SUITE_END()

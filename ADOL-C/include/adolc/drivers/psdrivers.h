@@ -20,47 +20,9 @@
 #include <adolc/drivers/absnormalform.h>
 #include <adolc/interfaces.h>
 #include <adolc/internal/common.h>
+#include <functional>
 #include <span>
 
-namespace ADOLC {
-/**
- * @brief Compile-time selector for constant-term updates in
- * `ADOLC::abs_normal`.
- *
- * - `UpdateConsts::True` computes `cy` and `cz` after the abs-normal
- *   form data has been populated.
- * - `UpdateConsts::False` leaves `cy` and `cz` untouched.
- */
-ADOLC_API enum class UpdateConsts {
-  True,
-  False,
-};
-
-/**
- * @brief Compute the abs-normal form of a taped function at a point.
- *
- * @param tag           Tape identifier.
- * @param x             Span view of the base point (input values).
- * @param anf           AbsNormalForm object to store results.
- *
- * @tparam uc           Dispatcher for version with or without updating
- *                      the constant terms `cy` and `cz`.
- *
- * @return Zero on success, nonzero on failure.
- */
-template <UpdateConsts uc = UpdateConsts::True>
-ADOLC_API int abs_normal(short tapeId, std::span<double> x, AbsNormalForm &anf);
-
-/// @brief Specialization that updates `cy` and `cz` after evaluation.
-template <>
-ADOLC_API int abs_normal<UpdateConsts::True>(short tapeId, std::span<double> x,
-                                             AbsNormalForm &anf);
-/// @brief Specialization that leaves `cy` and `cz` unchanged.
-template <>
-ADOLC_API int abs_normal<UpdateConsts::False>(short tapeId, std::span<double> x,
-                                              AbsNormalForm &anf);
-
-} // namespace ADOLC
 BEGIN_C_DECLS
 
 /****************************************************************************/
@@ -154,6 +116,78 @@ ADOLC_API int abs_normal(short tag, int m, int n, int swchk, const double *x,
                          double **Z, double **L);
 
 END_C_DECLS
+
+namespace ADOLC {
+
+/**
+ * @brief Compile-time selector for constant-term updates in
+ * `ADOLC::abs_normal`.
+ *
+ * - `UpdateConsts::True` computes `cy` and `cz` after the abs-normal
+ * form data has been populated.
+ * - `UpdateConsts::False` leaves `cy` and `cz` untouched.
+ */
+ADOLC_API enum class UpdateConsts {
+  True,
+  False,
+};
+
+// ---------------------------------------------------------
+// ABS_NORMAL
+// ---------------------------------------------------------
+
+template <UpdateConsts Update>
+int abs_normal(short tapeId, std::span<double> x, AbsNormalForm &anf) {
+  int rc = ::abs_normal(
+      tapeId, static_cast<int>(anf.dims().m), static_cast<int>(anf.dims().n),
+      static_cast<int>(anf.dims().s), x.data(), anf.y.data(), anf.z.data(),
+      anf.Y.data(), anf.J.data(), anf.Z.data(), anf.L.data());
+
+  if constexpr (Update == UpdateConsts::True) {
+    anf.updateCy();
+    anf.updateCz();
+  }
+
+  return rc;
+}
+
+inline int abs_normal(short tapeId, std::span<double> x, AbsNormalForm &anf) {
+  return abs_normal<UpdateConsts::True>(tapeId, x, anf);
+}
+
+// ---------------------------------------------------------
+// ABS_NORMAL_REDUCED
+// ---------------------------------------------------------
+
+int _abs_normal_reduced(
+    short tapeId, std::span<double> x, ReducedAbsNormalForm &anf,
+    std::function<std::vector<bool>(std::span<double>, std::span<double>)>
+        callback);
+
+template <UpdateConsts Update>
+int abs_normal_reduced(
+    short tapeId, std::span<double> x, ReducedAbsNormalForm &anf,
+    std::function<std::vector<bool>(std::span<double>, std::span<double>)>
+        callback) {
+
+  int rc = _abs_normal_reduced(tapeId, x, anf, callback);
+
+  if constexpr (Update == UpdateConsts::True) {
+    anf.updateCy();
+    anf.updateCz();
+  }
+
+  return rc;
+}
+
+inline int abs_normal_reduced(
+    short tapeId, std::span<double> x, ReducedAbsNormalForm &anf,
+    std::function<std::vector<bool>(std::span<double>, std::span<double>)>
+        callback) {
+  return abs_normal_reduced<UpdateConsts::True>(tapeId, x, anf, callback);
+}
+
+} // namespace ADOLC
 
 /****************************************************************************/
 

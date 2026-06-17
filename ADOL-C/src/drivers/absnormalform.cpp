@@ -82,4 +82,40 @@ void AbsNormalForm::updateCz() {
   }
 }
 
+
+void ReducedAbsNormalForm::clear() {
+  AbsNormalForm::clear();
+  shape = {};
+  z_full.clear();
+}
+
+void ReducedAbsNormalForm::resize(ReducedAbsNormalForm::Shape dims) {
+  // Pass the base ANFShape slice to the parent class to handle the standard buffers
+  AbsNormalForm::resize(static_cast<AbsNormalForm::Shape>(dims));
+  
+  // Update the local shape and resize the extended buffers
+  shape = dims;
+  z_full.resize(dims.s_full, 0.0);
+}
+
+void ReducedAbsNormalForm::resize(size_t m, size_t n, size_t s, size_t s_full) {
+  resize(Shape{{m, n, s}, s_full});
+}
+
+ReducedAbsNormalForm ReducedAbsNormalForm::fromTape(short tape_id) {
+  const ValueTape &tape = findTape(tape_id);
+  
+  Shape dims;
+  dims.m = tape.tapestats(TapeInfos::NUM_DEPENDENTS);
+  dims.n = tape.tapestats(TapeInfos::NUM_INDEPENDENTS);
+  
+  // Read the actual switch count from the tape into s_full
+  dims.s_full = tape.tapestats(TapeInfos::NUM_SWITCHES);
+  
+  // As requested, the reduced active switch count `s` starts at 0
+  dims.s = 0; 
+  
+  return ReducedAbsNormalForm(dims);
+}
+
 } // namespace ADOLC
